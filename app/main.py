@@ -3,8 +3,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from botocore.exceptions import ClientError
+from multiprocessing.managers import BaseManager
 from app.data.messages.status_code import StatusCode
 from app.data.messages.response import CustomHTTPException
+from app.data.messages.qa import QuestionAnsweringRequest, QuestionAnsweringResponse
+from app.data.messages.response import BaseResponseModel
 from app.routers.qa import qa_router
 from app.common.log_util import logger, ERROR_MSG_USER_NOT_FOUND
 import uvicorn
@@ -30,6 +33,14 @@ app.add_middleware(
 
 prefix = "/api/v1"
 app.include_router(qa_router, prefix=prefix)
+
+# initialize manager connection
+# NOTE: you might want to handle the password in a less hardcoded way
+manager = BaseManager(('', 5602), b'password')
+manager.register('query_index')
+manager.register('insert_into_index')
+manager.register('get_documents_list')
+manager.connect()
 
 
 def handle_error_msg(request, error_msg, error_code=None):
@@ -90,6 +101,31 @@ async def key_error_handler(request, exc):
         "status_code": StatusCode.ERROR_INPUT_FORMAT,
         "msg": error_msg,
     })
+
+
+@app.post("/query", response_model=QuestionAnsweringResponse)
+async def answer_question(req: QuestionAnsweringRequest):
+    # logger.info("answer question from user")
+    global manager
+    query_text = req.question
+    if query_text is None:
+        return "No text found, please include a ?text=blah parameter in the URL", 400
+    # TODO manager.insert_into_index(filepath, doc_id=filename)
+    response = manager.query_index(query_text)._getvalue()
+    sources = [{"text": str(x.source_text),
+                "similarity": round(x.similarity, 2),
+                "doc_id": str(x.doc_id),
+                "start": x.node_info['start'],
+                "end": x.node_info['end']
+                } for x in response.source_nodes]
+    return QuestionAnsweringResponse(data=str(response))
+
+
+@app.get("/documents", response_model=QuestionAnsweringResponse)
+async def get_documents_list(req: QuestionAnsweringRequest):
+    global manager
+    documents = manager.get_documents_list()._getvalue()
+    return BaseResponseModel(data=documents)
 
 
 if __name__ == "__main__":
