@@ -7,7 +7,6 @@ FastAPI + llama index
 - Setup Environment
 
 ```shell
-cd llm-question-answering
 virtualenv -p python3.9 env
 source env/bin/activate
 pip install -r requirements.txt
