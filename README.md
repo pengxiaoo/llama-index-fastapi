@@ -1,5 +1,3 @@
-## This project contains backend logics of the traveler application
-
 ## technical stack:
 
 FastAPI + llama index
@@ -18,10 +16,10 @@ pip install -r requirements.txt
 - Run the application locally
 
 ```shell
-uvicorn app.main:app --host 127.0.0.1 --port 8080 --reload
+uvicorn app.main:app --host 127.0.0.1 --port 8081 --reload
 ```
 
-- api doc http://127.0.0.1:8080/docs
+- api doc http://127.0.0.1:8081/docs
 
 ## Deploy
 
@@ -38,10 +36,6 @@ zip -g ./function.zip -r app
 ```
 
 ## Test
-
-#### integration test(for deployed apis)
-
-- test the apis via postman, or from webpage https://uat.d31z7asgkhc1ua.amplifyapp.com/
 
 #### test cases(for local tests)
 
