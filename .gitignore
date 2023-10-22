@@ -148,4 +148,5 @@ access_token.txt
 
 local_code/*
 serverless-venv/*
-saved_index/*
+llama-index/saved_index/*
+*.json
