@@ -4,7 +4,7 @@ import sys
 ERROR_MSG_USER_NOT_FOUND = "The email address doesn't exist."
 system_logger_name = "wikivoyage"
 default_formatter = logging.Formatter(
-    "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s][%(request_id)s] %(message)s"
+    "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
 )
 stream_handler = logging.StreamHandler(stream=sys.stderr)
 stream_handler.setLevel("INFO")

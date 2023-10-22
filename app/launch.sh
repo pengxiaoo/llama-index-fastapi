@@ -8,6 +8,6 @@ echo "index_server running..."
 sleep 10
 
 # start the fastapi server
-# todo
+# TODO 在这里启动fastapi，这样的话直接运行launch.sh就可以同时启动index_server和fastapi
 #python main.py &
 #echo "fastapi running..."

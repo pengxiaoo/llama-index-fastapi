@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from app.data.messages.qa import QuestionAnsweringRequest, QuestionAnsweringResponse
-from app.data.messages.response import BaseResponseModel
+from app.common.log_util import logger
 
 qa_router = APIRouter(
     prefix="/qa",

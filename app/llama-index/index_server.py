@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     # setup server
     # NOTE: you might want to handle the password in a less hardcoded way
-    manager = BaseManager(('', 5602), b'password')
+    manager = BaseManager(address=('', 5602), authkey=b'password')
     manager.register('query_index', query_index)
     manager.register('insert_into_index', insert_into_index)
     manager.register('get_documents_list', get_documents_list)
