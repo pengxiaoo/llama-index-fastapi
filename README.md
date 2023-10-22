@@ -2,6 +2,11 @@
 
 FastAPI + llama index
 
+### reference:
+
+- [llama index official demo doc: fullstack_app_guide](https://docs.llamaindex.ai/en/stable/end_to_end_tutorials/apps/fullstack_app_guide.html)
+- [llama index official demo code: flask_react](https://github.com/logan-markewich/llama_index_starter_pack/tree/main/flask_react)
+
 ## Development
 
 - Setup Environment
