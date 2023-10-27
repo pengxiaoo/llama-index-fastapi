@@ -20,12 +20,15 @@ def initialize_index():
     service_context = ServiceContext.from_defaults(chunk_size_limit=512)
     with lock:
         if os.path.exists(index_name):
+            print(f"Loading index from dir: {index_name}")
             index = load_index_from_storage(StorageContext.from_defaults(persist_dir=index_name),
                                             service_context=service_context)
         else:
             index = GPTVectorStoreIndex([], service_context=service_context)
+            print("Using GPTVectorStoreIndex")
             index.storage_context.persist(persist_dir=index_name)
         if os.path.exists(pkl_name):
+            print(f"Loading from pickle: {pkl_name}")
             with open(pkl_name, "rb") as f:
                 stored_docs = pickle.load(f)
 
@@ -33,6 +36,7 @@ def initialize_index():
 def query_index(query_text):
     """Query the global index."""
     global index
+    print(f"Query test: {query_text}")
     response = index.as_query_engine().query(query_text)
     return response
 
@@ -67,10 +71,11 @@ def get_documents_list():
     return documents_list
 
 
-if __name__ == "__main__":
+def main():
     # init the global index
     print("initializing index...")
     initialize_index()
+    print("initializing index... done")
 
     # setup server
     # NOTE: you might want to handle the password in a less hardcoded way
@@ -82,3 +87,7 @@ if __name__ == "__main__":
 
     print("server started...")
     server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
