@@ -1,3 +1,5 @@
+import os
+from functools import lru_cache
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,7 +14,7 @@ from app.routers.qa import qa_router
 from app.common.log_util import logger, ERROR_MSG_USER_NOT_FOUND
 import uvicorn
 
-# os.environ["OPENAI_API_KEY"] = "your key here"
+os.environ["OPENAI_API_KEY"] = "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"
 
 app = FastAPI(
     title="Api Definitions for Question Answering",
@@ -36,13 +38,14 @@ patch_openapi(app)
 prefix = "/api/v1"
 app.include_router(qa_router, prefix=prefix)
 
-# initialize manager connection
-# you might want to handle the password in a less hardcoded way
-manager = BaseManager(address=('', 5602), authkey=b'password')
-manager.register('query_index')
-manager.register('insert_into_index')
-manager.register('get_documents_list')
-manager.connect()
+@lru_cache(maxsize=10)
+def get_manager():
+    manager = BaseManager(address=('', 5602), authkey=b'password')
+    manager.register('query_index')
+    manager.register('insert_into_index')
+    manager.register('get_documents_list')
+    manager.connect()
+    return manager
 
 
 # TODO move the endpoint to app/routers/qa.py
@@ -50,8 +53,8 @@ manager.connect()
 @app.post("/query", response_model=QuestionAnsweringResponse)
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
-    global manager
     query_text = req.question
+    manager = get_manager()
     response = manager.query_index(query_text)._getvalue()
     sources = [{"text": str(x.source_text),
                 "similarity": round(x.similarity, 2),
@@ -66,7 +69,7 @@ async def answer_question(req: QuestionAnsweringRequest):
 # TODO move the endpoint to app/routers/qa.py
 @app.get("/documents", response_model=QuestionAnsweringResponse)
 async def get_documents_list(req: QuestionAnsweringRequest):
-    global manager
+    manager = get_manager()
     documents = manager.get_documents_list()._getvalue()
     return QuestionAnsweringResponse(data=documents)
 
@@ -131,7 +134,12 @@ async def key_error_handler(request, exc):
     })
 
 
-if __name__ == "__main__":
+def main():
     # show if there is any python process running bounded to the port
     # ps -fA | grep python
+    print("Start api server")
     uvicorn.run("main:app", host="127.0.0.1", port=8081, reload=True)
+
+
+if __name__ == "__main__":
+    main()

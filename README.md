@@ -20,7 +20,7 @@ pip install -r requirements.txt
 - Run the application locally
 
 ```shell
-uvicorn app.main:app --host 127.0.0.1 --port 8081 --reload
+OPENAI_API_KEY=key PYTHONPATH=. python app/launch.py
 ```
 
 - api doc http://127.0.0.1:8081/docs
