@@ -5,6 +5,8 @@ from multiprocessing import Lock
 from multiprocessing.managers import BaseManager
 from llama_index import Document, download_loader, GPTVectorStoreIndex, ServiceContext, StorageContext, \
     load_index_from_storage, SimpleDirectoryReader
+from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
+from llama_index.indices.postprocessor import SimilarityPostprocessor
 from app.common.log_util import logger
 
 os.environ["LLAMA_INDEX_CACHE_DIR"] = "./llama_index_server/llama_index_cache"
@@ -41,8 +43,21 @@ def query_index(query_text):
     """Query the global index."""
     global index
     logger.info(f"Query test: {query_text}")
-    # TODO 不直接访问chatpgt来寻求答案，而是先在vectorStore进行匹配，如果匹配度达到一定程度，直接返回结果；否则再去chatpgt寻求答案
-    response = index.as_query_engine().query(query_text)
+    # first search locally
+    local_query_engine = index.as_query_engine(
+        response_synthesizer=get_response_synthesizer(response_mode=ResponseMode.NO_TEXT),
+        node_postprocessors=[
+            SimilarityPostprocessor(similarity_cutoff=0.8)
+        ]
+    )
+    local_query_response = local_query_engine.query(query_text)
+    if len(local_query_response.source_nodes) > 0:
+        response = local_query_response.source_nodes[0].text.split("answer: ")[1]
+    else:
+        # if not found, turn to LLM
+        llm_query_engine = index.as_query_engine()
+        response = llm_query_engine.query(query_text)
+        response = str(response)
     return response
 
 
