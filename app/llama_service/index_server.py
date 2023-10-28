@@ -4,6 +4,7 @@ from multiprocessing import Lock
 from multiprocessing.managers import BaseManager
 from llama_index import SimpleDirectoryReader, GPTVectorStoreIndex, ServiceContext, StorageContext, \
     load_index_from_storage
+from app.common.log_util import logger
 
 # NOTE: for local testing only, do NOT deploy with your key hardcoded
 index = None
@@ -20,15 +21,15 @@ def initialize_index():
     service_context = ServiceContext.from_defaults(chunk_size_limit=512)
     with lock:
         if os.path.exists(index_name):
-            print(f"Loading index from dir: {index_name}")
+            logger.info(f"Loading index from dir: {index_name}")
             index = load_index_from_storage(StorageContext.from_defaults(persist_dir=index_name),
                                             service_context=service_context)
         else:
             index = GPTVectorStoreIndex([], service_context=service_context)
-            print("Using GPTVectorStoreIndex")
+            logger.info("Using GPTVectorStoreIndex")
             index.storage_context.persist(persist_dir=index_name)
         if os.path.exists(pkl_name):
-            print(f"Loading from pickle: {pkl_name}")
+            logger.info(f"Loading from pickle: {pkl_name}")
             with open(pkl_name, "rb") as f:
                 stored_docs = pickle.load(f)
 
@@ -36,7 +37,7 @@ def initialize_index():
 def query_index(query_text):
     """Query the global index."""
     global index
-    print(f"Query test: {query_text}")
+    logger.info(f"Query test: {query_text}")
     response = index.as_query_engine().query(query_text)
     return response
 
@@ -73,9 +74,9 @@ def get_documents_list():
 
 def main():
     # init the global index
-    print("initializing index...")
+    logger.info("initializing index...")
     initialize_index()
-    print("initializing index... done")
+    logger.info("initializing index... done")
 
     # setup server
     # NOTE: you might want to handle the password in a less hardcoded way
@@ -85,7 +86,7 @@ def main():
     manager.register('get_documents_list', get_documents_list)
     server = manager.get_server()
 
-    print("server started...")
+    logger.info("server started...")
     server.serve_forever()
 
 

@@ -20,7 +20,7 @@ pip install -r requirements.txt
 - Run the application locally
 
 ```shell
-OPENAI_API_KEY=key PYTHONPATH=. python app/launch.py
+PYTHONPATH=. python app/launch.py
 ```
 
 - api doc http://127.0.0.1:8081/docs
@@ -28,16 +28,6 @@ OPENAI_API_KEY=key PYTHONPATH=. python app/launch.py
 ## Deploy
 
 #### CI/CD(TODO)
-
-need to execute the following cmds in linux environment, then upload function.zip to s3:
-//wikivoyage-backend-fastapi/lambda/function.zip
-
-```shell
-cd env/lib/python3.9/site-packages
-zip -r9 ../../../../function.zip .
-cd ../../../../
-zip -g ./function.zip -r app
-```
 
 ## Test
 

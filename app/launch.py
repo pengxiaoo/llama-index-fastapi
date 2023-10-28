@@ -1,9 +1,9 @@
 import sys
 import time
 from multiprocessing import Process
-
 from app.llama_service.index_server import main as index_main
 from app.main import main as api_main
+from app.common.log_util import logger
 
 
 def start_index_server() -> Process:
@@ -13,8 +13,7 @@ def start_index_server() -> Process:
     return index_server_process
 
 
-def _main() -> Process:
-
+def index_server_main() -> Process:
     index_process = start_index_server()
     return index_process
 
@@ -22,11 +21,11 @@ def _main() -> Process:
 def main():
     index_process = None
     try:
-        index_process = _main()
+        index_process = index_server_main()
         sleep_time = 30
-        print(f"Sleeping for {sleep_time}s to wait for index server, please wait")
+        logger.info(f"Sleeping for {sleep_time}s to wait for index server, please wait")
         time.sleep(sleep_time)
-        print(f"Sleep is done, starting API server")
+        logger.info(f"Sleep is done, starting API server")
         api_main()
     except KeyboardInterrupt:
         if index_process:
@@ -36,5 +35,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     sys.exit(main())
