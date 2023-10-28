@@ -52,7 +52,7 @@ def query_index(query_text):
     )
     local_query_response = local_query_engine.query(query_text)
     if len(local_query_response.source_nodes) > 0:
-        response = local_query_response.source_nodes[0].text.split("answer: ")[1]
+        response = local_query_response.source_nodes[0].text
     else:
         # if not found, turn to LLM
         llm_query_engine = index.as_query_engine()
