@@ -6,7 +6,8 @@ from multiprocessing.managers import BaseManager
 def get_manager():
     manager = BaseManager(address=('', 5602), authkey=b'password')
     manager.register('query_index')
-    manager.register('insert_into_index')
+    manager.register('insert_text_into_index')
+    manager.register('insert_file_into_index')
     manager.register('get_documents_list')
     manager.connect()
     return manager
