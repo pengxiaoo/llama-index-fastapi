@@ -148,8 +148,8 @@ function.zip
 
 local_code/*
 serverless-venv/*
-llama-index/saved_index/*
-saved_index/*
+llama_index_server/saved_index/*
 *.json
-
-*/llama_index_cache/*
+*.pickle
+app/llama_index_server/llama_index_cache/
+*.pkl

@@ -7,7 +7,7 @@ from app.common.openapi import patch_openapi
 from app.data.messages.status_code import StatusCode
 from app.data.messages.response import CustomHTTPException
 from app.routers.qa import qa_router
-from app.common.log_util import logger, ERROR_MSG_USER_NOT_FOUND
+from app.common.log_util import logger
 import uvicorn
 
 # os.environ["OPENAI_API_KEY"]
@@ -37,10 +37,7 @@ app.include_router(qa_router, prefix=prefix)
 
 def handle_error_msg(request, error_msg, error_code=None):
     request_url = str(request.url)
-    if error_code == "UserNotFoundException":
-        error_msg = f"client error in {request_url}: {ERROR_MSG_USER_NOT_FOUND}"
-    else:
-        error_msg = f"client error in {request_url}: {error_msg}"
+    error_msg = f"client error in {request_url}: {error_msg}"
     logger.error(error_msg)
     result = error_msg.split(":")[-1].strip()
     return result

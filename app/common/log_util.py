@@ -1,15 +1,10 @@
 import logging
 import sys
 
-ERROR_MSG_USER_NOT_FOUND = "The email address doesn't exist."
-system_logger_name = "wikivoyage"
-default_formatter = logging.Formatter(
-    "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s"
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.DEBUG,
+    format="[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s",
 )
-stream_handler = logging.StreamHandler(stream=sys.stderr)
-stream_handler.setLevel("INFO")
-stream_handler.setFormatter(default_formatter)
-logger = logging.getLogger(system_logger_name)
-logger.setLevel("INFO")
-logger.propagate = False
-logger.addHandler(stream_handler)
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.StreamHandler(stream=sys.stdout))

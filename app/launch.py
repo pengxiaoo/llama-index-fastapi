@@ -6,16 +6,11 @@ from app.main import main as api_main
 from app.common.log_util import logger
 
 
-def start_index_server() -> Process:
+def index_server_main() -> Process:
     index_server_process = Process(target=index_main)
     index_server_process.daemon = True
     index_server_process.start()
     return index_server_process
-
-
-def index_server_main() -> Process:
-    index_process = start_index_server()
-    return index_process
 
 
 def main():

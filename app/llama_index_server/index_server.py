@@ -1,17 +1,18 @@
 import os
 import pickle
+from pathlib import Path
 from multiprocessing import Lock
 from multiprocessing.managers import BaseManager
-from llama_index import SimpleDirectoryReader, GPTVectorStoreIndex, ServiceContext, StorageContext, \
+from llama_index import Document, download_loader, GPTVectorStoreIndex, ServiceContext, StorageContext, \
     load_index_from_storage
 from app.common.log_util import logger
 
-# NOTE: for local testing only, do NOT deploy with your key hardcoded
+os.environ["LLAMA_INDEX_CACHE_DIR"] = "./llama_index_server/llama_index_cache"
+index_name = "llama_index_server/saved_index"
+pkl_name = "llama_index_server/pkl/stored_documents.pkl"
 index = None
 stored_docs = {}
 lock = Lock()
-index_name = "llama_index_server/saved_index"
-pkl_name = "llama_index_server/pkl/stored_documents.pkl"
 
 
 def initialize_index():
@@ -25,7 +26,10 @@ def initialize_index():
             index = load_index_from_storage(StorageContext.from_defaults(persist_dir=index_name),
                                             service_context=service_context)
         else:
-            index = GPTVectorStoreIndex([], service_context=service_context)
+            SimpleCSVReader = download_loader("SimpleCSVReader")
+            loader = SimpleCSVReader()
+            documents = loader.load_data(file=Path('./documents/golf-knowledge-base.csv'))
+            index = GPTVectorStoreIndex.from_documents(documents, service_context=service_context)
             logger.info("Using GPTVectorStoreIndex")
             index.storage_context.persist(persist_dir=index_name)
         if os.path.exists(pkl_name):
@@ -42,24 +46,20 @@ def query_index(query_text):
     return response
 
 
-def insert_into_index(doc_file_path, doc_id=None):
+def insert_into_index(text):
     """Insert new document into global index."""
     global index, stored_docs
-    document = SimpleDirectoryReader(input_files=[doc_file_path]).load_data()[0]
-    if doc_id is not None:
-        document.doc_id = doc_id
+    document = Document(text=text)
 
     with lock:
         # Keep track of stored docs -- llama_index_server doesn't make this easy
-        stored_docs[document.doc_id] = document.text[0:200]  # only take the first 200 chars
+        stored_docs[document.doc_id] = document.text[0:1000]  # only take the first 200 chars
 
         index.insert(document)
         index.storage_context.persist(persist_dir=index_name)
 
         with open(pkl_name, "wb") as f:
             pickle.dump(stored_docs, f)
-
-    return
 
 
 def get_documents_list():
@@ -68,7 +68,6 @@ def get_documents_list():
     documents_list = []
     for doc_id, doc_text in stored_docs.items():
         documents_list.append({"id": doc_id, "text": doc_text})
-
     return documents_list
 
 
@@ -79,13 +78,11 @@ def main():
     logger.info("initializing index... done")
 
     # setup server
-    # NOTE: you might want to handle the password in a less hardcoded way
     manager = BaseManager(address=('', 5602), authkey=b'password')
     manager.register('query_index', query_index)
     manager.register('insert_into_index', insert_into_index)
     manager.register('get_documents_list', get_documents_list)
     server = manager.get_server()
-
     logger.info("server started...")
     server.serve_forever()
 

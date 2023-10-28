@@ -19,9 +19,10 @@ async def answer_question(req: QuestionAnsweringRequest):
     query_text = req.question
     manager = manager_util.get_manager()
     response = manager.query_index(query_text)._getvalue()
-    # TODO update index by the response
-    # manager.insert_into_index(filepath, doc_id=filename)
-    return QuestionAnsweringResponse(data=str(response))
+    response_text = str(response)
+    question_answer_pair = f"question: {query_text}, answer: {response_text}"
+    manager.insert_into_index(question_answer_pair)
+    return QuestionAnsweringResponse(data=response_text)
 
 
 @qa_router.get("/documents", response_model=QuestionAnsweringResponse)
@@ -43,9 +44,4 @@ def upload_file(uploaded_file: UploadFile = File(..., description="files for ind
         manager.insert_into_index(filepath, doc_id=filename)
     except Exception as e:
         return BaseResponseModel(msg="File uploaded failed: {}".format(str(e)))
-    finally:
-        # cleanup temp file
-        # if filepath is not None and os.path.exists(filepath):
-        #     os.remove(filepath)
-        pass
     return BaseResponseModel(msg="File uploaded successfully")
