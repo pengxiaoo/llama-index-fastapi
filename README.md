@@ -34,7 +34,6 @@ PYTHONPATH=. python app/launch.py
 #### test cases(for local tests)
 
 - write test cases in /app/tests/test_*.py
-- ensure `IS_LOCAL_TEST` environment variable is set in /app/tests/conftest.py. and then run
 - need to pass local test cases before deploy.
 
 ```shell

@@ -42,6 +42,7 @@ def query_index(query_text):
     """Query the global index."""
     global index
     logger.info(f"Query test: {query_text}")
+    # TODO 不直接访问chatpgt来寻求答案，而是先在vectorStore进行匹配，如果匹配度达到一定程度，直接返回结果；否则再去chatpgt寻求答案
     response = index.as_query_engine().query(query_text)
     return response
 
@@ -64,7 +65,7 @@ def insert_into_index(text):
 
 def get_documents_list():
     """Get the list of currently stored documents."""
-    global stored_doc
+    global stored_docs
     documents_list = []
     for doc_id, doc_text in stored_docs.items():
         documents_list.append({"id": doc_id, "text": doc_text})
