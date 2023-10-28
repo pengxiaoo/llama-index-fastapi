@@ -10,7 +10,7 @@ qa_router = APIRouter(
     tags=["question answering"],
 )
 
-PATH_DOCUMENTS = '../documents'
+PATH_DOCUMENTS = './documents'
 
 
 @qa_router.post("/query", response_model=QuestionAnsweringResponse)
@@ -19,12 +19,7 @@ async def answer_question(req: QuestionAnsweringRequest):
     query_text = req.question
     manager = manager_util.get_manager()
     response = manager.query_index(query_text)._getvalue()
-    sources = [{"text": str(x.source_text),
-                "similarity": round(x.similarity, 2),
-                "doc_id": str(x.doc_id),
-                "start": x.node_info['start'],
-                "end": x.node_info['end']
-                } for x in response.source_nodes]
+    # TODO update index by the response
     # manager.insert_into_index(filepath, doc_id=filename)
     return QuestionAnsweringResponse(data=str(response))
 
@@ -39,7 +34,6 @@ async def get_documents_list():
 @qa_router.post("/uploadFile", response_model=BaseResponseModel)
 def upload_file(uploaded_file: UploadFile = File(..., description="files for indexing"), ):
     manager = manager_util.get_manager()
-    filepath = None
     try:
         filename = uploaded_file.filename
         filepath = os.path.join(PATH_DOCUMENTS, os.path.basename(filename))
@@ -51,6 +45,7 @@ def upload_file(uploaded_file: UploadFile = File(..., description="files for ind
         return BaseResponseModel(msg="File uploaded failed: {}".format(str(e)))
     finally:
         # cleanup temp file
-        if filepath is not None and os.path.exists(filepath):
-            os.remove(filepath)
+        # if filepath is not None and os.path.exists(filepath):
+        #     os.remove(filepath)
+        pass
     return BaseResponseModel(msg="File uploaded successfully")

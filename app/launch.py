@@ -1,7 +1,7 @@
 import sys
 import time
 from multiprocessing import Process
-from app.llama_service.index_server import main as index_main
+from app.llama_index_server.index_server import main as index_main
 from app.main import main as api_main
 from app.common.log_util import logger
 

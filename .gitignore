@@ -142,7 +142,7 @@ cython_debug/
 # Lambda function
 function.zip
 
-access_token.txt
+*.txt
 
 .envrc
 

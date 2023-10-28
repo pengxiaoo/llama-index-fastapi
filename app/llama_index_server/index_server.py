@@ -10,8 +10,8 @@ from app.common.log_util import logger
 index = None
 stored_docs = {}
 lock = Lock()
-index_name = "./saved_index"
-pkl_name = "stored_documents.pkl"
+index_name = "llama_index_server/saved_index"
+pkl_name = "llama_index_server/pkl/stored_documents.pkl"
 
 
 def initialize_index():
@@ -50,7 +50,7 @@ def insert_into_index(doc_file_path, doc_id=None):
         document.doc_id = doc_id
 
     with lock:
-        # Keep track of stored docs -- llama_index doesn't make this easy
+        # Keep track of stored docs -- llama_index_server doesn't make this easy
         stored_docs[document.doc_id] = document.text[0:200]  # only take the first 200 chars
 
         index.insert(document)
