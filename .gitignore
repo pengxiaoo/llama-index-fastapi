@@ -151,3 +151,5 @@ serverless-venv/*
 llama-index/saved_index/*
 saved_index/*
 *.json
+
+*/llama_index_cache/*
