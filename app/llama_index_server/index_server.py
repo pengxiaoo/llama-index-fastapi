@@ -9,9 +9,11 @@ from llama_index.response_synthesizers import get_response_synthesizer, Response
 from llama_index.indices.postprocessor import SimilarityPostprocessor
 from app.common.log_util import logger
 
-os.environ["LLAMA_INDEX_CACHE_DIR"] = "./llama_index_server/llama_index_cache"
-index_name = "llama_index_server/saved_index"
-pkl_name = "llama_index_server/pkl/stored_documents.pkl"
+llama_index_home = "./llama_index_server"
+os.environ["LLAMA_INDEX_CACHE_DIR"] = f"{llama_index_home}/llama_index_cache"
+index_name = f"{llama_index_home}/saved_index"
+pkl_home = f"{llama_index_home}/pkl"
+pkl_name = f"{pkl_home}/stored_documents.pkl"
 index = None
 stored_docs = {}
 lock = Lock()
@@ -27,9 +29,9 @@ def initialize_index():
             index = load_index_from_storage(StorageContext.from_defaults(persist_dir=index_name),
                                             service_context=service_context)
         else:
-            SimpleCSVReader = download_loader("SimpleCSVReader")
-            loader = SimpleCSVReader()
-            documents = loader.load_data(file=Path('./documents/golf-knowledge-base.csv'))
+            json_reader = download_loader("JSONReader")
+            loader = json_reader()
+            documents = loader.load_data(file=Path('./documents/golf-knowledge-base.jsonl'), is_jsonl=True)
             index = GPTVectorStoreIndex.from_documents(documents, service_context=service_context)
             logger.info("Using GPTVectorStoreIndex")
             index.storage_context.persist(persist_dir=index_name)
@@ -47,17 +49,23 @@ def query_index(query_text):
     local_query_engine = index.as_query_engine(
         response_synthesizer=get_response_synthesizer(response_mode=ResponseMode.NO_TEXT),
         node_postprocessors=[
-            SimilarityPostprocessor(similarity_cutoff=0.8)
+            SimilarityPostprocessor(similarity_cutoff=0.85)
         ]
     )
     local_query_response = local_query_engine.query(query_text)
     if len(local_query_response.source_nodes) > 0:
         response = local_query_response.source_nodes[0].text
+        if 'answer": ' in response:
+            response = response.split('answer": ')[1].strip("\"\n}")
     else:
         # if not found, turn to LLM
         llm_query_engine = index.as_query_engine()
         response = llm_query_engine.query(query_text)
         response = str(response)
+        # save the question-answer pair to index
+        question_answer_pair = f'"source": "conversation", "category":"", "question": {query_text}, "answer": {response}'
+        insert_text_into_index(question_answer_pair)
+
     return response
 
 

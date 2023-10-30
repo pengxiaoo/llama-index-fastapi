@@ -21,10 +21,7 @@ async def answer_question(req: QuestionAnsweringRequest):
     query_text = req.question
     manager = manager_util.get_manager()
     response = manager.query_index(query_text)._getvalue()
-    response_text = str(response)
-    question_answer_pair = f"question: {query_text}, answer: {response_text}"
-    manager.insert_text_into_index(question_answer_pair)
-    return QuestionAnsweringResponse(data=response_text)
+    return QuestionAnsweringResponse(data=response)
 
 
 @qa_router.get("/documents", response_model=QuestionAnsweringResponse, description="only for testing")
