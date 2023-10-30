@@ -1,5 +1,5 @@
 from pydantic import Field, BaseModel
-from typing import List, Any, Union
+from typing import Optional
 from app.data.models.qa import Answer
 from app.data.messages.response import BaseResponseModel
 
@@ -9,4 +9,4 @@ class QuestionAnsweringRequest(BaseModel):
 
 
 class QuestionAnsweringResponse(BaseResponseModel):
-    data: Union[str, Answer, List[Any]] = Field(..., description="answer to the question")
+    data: Optional[Answer] = Field(None, description="answer to the question")

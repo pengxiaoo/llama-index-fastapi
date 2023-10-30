@@ -1,16 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from botocore.exceptions import ClientError
-from app.common.openapi import patch_openapi
+from app.utils.openapi import patch_openapi
 from app.data.messages.status_code import StatusCode
 from app.data.messages.response import CustomHTTPException
 from app.routers.qa import qa_router
-from app.common.log_util import logger
+from app.utils.log_util import logger
 import uvicorn
-
-# os.environ["OPENAI_API_KEY"]
+import time
 
 app = FastAPI(
     title="Api Definitions for Question Answering",
@@ -28,6 +27,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("timing")
+async def init_timing_middleware(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    end_time = time.time()
+    response.headers["X-Response-Time"] = str((end_time - start_time) * 1000)
+    return response
+
+
 # Remove 422 error in the docs
 patch_openapi(app)
 

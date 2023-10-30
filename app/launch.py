@@ -1,10 +1,9 @@
-import os
 import sys
 import time
 from multiprocessing import Process
 from app.llama_index_server.index_server import main as index_main
 from app.main import main as api_main
-from app.common.log_util import logger
+from app.utils.log_util import logger
 
 
 def index_server_main() -> Process:
@@ -17,8 +16,6 @@ def index_server_main() -> Process:
 def main():
     index_process = None
     try:
-        openai_api_key = os.environ.get("OPENAI_API_KEY", None)
-        logger.info(f"openai_api_key: {openai_api_key}")
         index_process = index_server_main()
         sleep_time = 3
         logger.info(f"Sleeping for {sleep_time}s to wait for index server, please wait")

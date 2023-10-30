@@ -1,1 +1,1 @@
-this folder holds the persisted data from user conversations
+this folder persists useful data from user conversations

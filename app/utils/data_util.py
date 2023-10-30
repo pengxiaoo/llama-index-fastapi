@@ -13,12 +13,6 @@ def custom_client_error(message, operation_name):
     return ClientError(error_response=error_response, operation_name=operation_name)
 
 
-def assert_content_type(file, msg="Invalid file content type"):
-    content_type = file.content_type
-    if content_type not in ["text/plain", "text/html", "multipart/form-data"]:
-        raise custom_client_error(msg, "assert_content_type")
-
-
 def assert_not_none(value, msg="Value is None"):
     if value is None:
         raise custom_client_error(msg, "assert_not_none")

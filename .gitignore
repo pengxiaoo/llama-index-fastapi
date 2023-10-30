@@ -153,3 +153,4 @@ llama_index_server/saved_index/*
 *.pickle
 app/llama_index_server/llama_index_cache/
 *.pkl
+*.jsonl

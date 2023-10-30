@@ -1,7 +1,7 @@
 import boto3
 import os
-from app.common.log_util import logger
-from app.data.utils import data_util
+from app.utils.log_util import logger
+from app.utils import data_util
 
 IS_LOCAL_TEST = os.environ.get("IS_LOCAL_TEST")
 REGION = "ap-southeast-1"
