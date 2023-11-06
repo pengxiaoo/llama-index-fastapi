@@ -14,10 +14,13 @@ import time
 app = FastAPI(
     title="Api Definitions for Question Answering",
     servers=[
-        {"url": "http://127.0.0.1:8081",
-         "description": "Local test environment", },
+        {
+            "url": "http://127.0.0.1:8081",
+            "description": "Local test environment",
+        },
     ],
-    version="0.0.1")
+    version="0.0.1",
+)
 
 # Enable CORS for *
 app.add_middleware(
@@ -57,20 +60,26 @@ def handle_error_msg(request, error_msg, error_code=None):
 async def custom_exception_handler(request, exc):
     msg = exc.detail
     error_msg = handle_error_msg(request, msg)
-    return JSONResponse(status_code=400, content={
-        "status_code": exc.custom_status_code,
-        "msg": error_msg,
-    })
+    return JSONResponse(
+        status_code=400,
+        content={
+            "status_code": exc.custom_status_code,
+            "msg": error_msg,
+        },
+    )
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     msg = exc.errors()[0]["msg"]
     error_msg = handle_error_msg(request, msg)
-    return JSONResponse(status_code=400, content={
-        "status_code": StatusCode.ERROR_INPUT_FORMAT,
-        "msg": error_msg,
-    })
+    return JSONResponse(
+        status_code=400,
+        content={
+            "status_code": StatusCode.ERROR_INPUT_FORMAT,
+            "msg": error_msg,
+        },
+    )
 
 
 @app.exception_handler(ClientError)
@@ -78,35 +87,44 @@ async def client_error_handler(request, exc):
     error_code = exc.response["Error"]["Code"]
     error_msg = exc.response["Error"]["Message"]
     error_msg = handle_error_msg(request, error_msg, error_code)
-    return JSONResponse(status_code=400, content={
-        "status_code": StatusCode.ERROR_INPUT_FORMAT,
-        "msg": error_msg,
-    })
+    return JSONResponse(
+        status_code=400,
+        content={
+            "status_code": StatusCode.ERROR_INPUT_FORMAT,
+            "msg": error_msg,
+        },
+    )
 
 
 @app.exception_handler(ValueError)
 async def value_error_handler(request, exc):
     error_msg = handle_error_msg(request, str(exc))
-    return JSONResponse(status_code=400, content={
-        "status_code": StatusCode.ERROR_INPUT_FORMAT,
-        "msg": error_msg,
-    })
+    return JSONResponse(
+        status_code=400,
+        content={
+            "status_code": StatusCode.ERROR_INPUT_FORMAT,
+            "msg": error_msg,
+        },
+    )
 
 
 @app.exception_handler(KeyError)
 async def key_error_handler(request, exc):
     error_msg = handle_error_msg(request, "KeyError - " + str(exc))
-    return JSONResponse(status_code=400, content={
-        "status_code": StatusCode.ERROR_INPUT_FORMAT,
-        "msg": error_msg,
-    })
+    return JSONResponse(
+        status_code=400,
+        content={
+            "status_code": StatusCode.ERROR_INPUT_FORMAT,
+            "msg": error_msg,
+        },
+    )
 
 
 def main():
     # show if there is any python process running bounded to the port
     # ps -fA | grep python
     logger.info("Start api server")
-    uvicorn.run("main:app", host="127.0.0.1", port=8081, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8081)
 
 
 if __name__ == "__main__":

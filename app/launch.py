@@ -17,10 +17,10 @@ def main():
     index_process = None
     try:
         index_process = index_server_main()
-        sleep_time = 10
+        sleep_time = 15
         logger.info(f"Sleeping for {sleep_time}s to wait for index server, please wait")
         time.sleep(sleep_time)
-        logger.info(f"Sleep is done, starting API server")
+        logger.info("Sleep is done, starting API server")
         api_main()
     except KeyboardInterrupt:
         if index_process:
