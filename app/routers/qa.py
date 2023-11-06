@@ -10,9 +10,12 @@ qa_router = APIRouter(
 )
 
 
-@qa_router.post("/query", response_model=QuestionAnsweringResponse,
-                description="ask questions related to the knowledge base, return the answer if there is a good match, "
-                            "otherwise turn to chatgpt for answer")
+@qa_router.post(
+    "/query",
+    response_model=QuestionAnsweringResponse,
+    description="ask questions related to the knowledge base, return the answer if there is a good match, "
+    "otherwise turn to chatgpt for answer",
+)
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
     query_text = req.question
@@ -22,7 +25,11 @@ async def answer_question(req: QuestionAnsweringRequest):
     return QuestionAnsweringResponse(data=answer)
 
 
-@qa_router.get("/documents", response_model=QuestionAnsweringResponse, description="only for testing")
+@qa_router.get(
+    "/documents",
+    response_model=QuestionAnsweringResponse,
+    description="only for testing",
+)
 async def get_document_list():
     logger.info("get document list")
     manager = manager_util.get_manager()

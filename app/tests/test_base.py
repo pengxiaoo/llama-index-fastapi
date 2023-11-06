@@ -21,7 +21,11 @@ class BaseTest(unittest.TestCase):
         self.index_process.terminate()
 
     def test_ask_questions(self):
-        data = QuestionAnsweringRequest.ConfigDict.json_schema_extra["example_not_relevant"]
+        data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[
+            "example_not_relevant"
+        ]
         response = self.client.post(url=f"{self.ROOT}/{self.ROUTER}/query", json=data)
         json_dict = response.json()
-        self.assertEqual(json_dict["status_code"], StatusCode.SUCCEEDED, f"response: {json_dict}")
+        self.assertEqual(
+            json_dict["status_code"], StatusCode.SUCCEEDED, f"response: {json_dict}"
+        )
