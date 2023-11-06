@@ -154,3 +154,4 @@ llama_index_server/saved_index/*
 app/llama_index_server/llama_index_cache/
 *.pkl
 *.jsonl
+app/tests/llama_index_server/*
