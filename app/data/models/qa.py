@@ -11,9 +11,11 @@ class Source(str, Enum):
 
 
 class Answer(BaseModel):
-    """
-    """
-    category: Optional[str] = Field(None, description="Category of the question, if it can be recognized")
+    """ """
+
+    category: Optional[str] = Field(
+        None, description="Category of the question, if it can be recognized"
+    )
     question: str = Field(..., description="the original question")
     source: Source = Field(..., description="Source of the answer")
     answer: str = Field(..., description="answer to the question")

@@ -14,7 +14,10 @@ CLIENT_POOL = {}
 
 def get_resource(resource_type):
     logger.info(f"get_{resource_type}(): IS_LOCAL_TEST: {IS_LOCAL_TEST}")
-    data_util.assert_true(resource_type in SUPPORTED_RESOURCE_TYPES, f"resource_type: {resource_type} is not supported")
+    data_util.assert_true(
+        resource_type in SUPPORTED_RESOURCE_TYPES,
+        f"resource_type: {resource_type} is not supported",
+    )
     if resource_type not in RESOURCE_POOL:
         logger.warning(f"create new resource for {resource_type}")
         RESOURCE_POOL[resource_type] = boto3.resource(resource_type)
@@ -24,7 +27,10 @@ def get_resource(resource_type):
 
 def get_client(client_type):
     logger.info(f"get_{client_type}(): IS_LOCAL_TEST: {IS_LOCAL_TEST}")
-    data_util.assert_true(client_type in SUPPORTED_CLIENT_TYPES, f"client_type: {client_type} is not supported")
+    data_util.assert_true(
+        client_type in SUPPORTED_CLIENT_TYPES,
+        f"client_type: {client_type} is not supported",
+    )
     if client_type not in CLIENT_POOL:
         logger.warning(f"create new client for {client_type}")
         CLIENT_POOL[client_type] = boto3.client(client_type)

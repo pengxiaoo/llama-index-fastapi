@@ -4,18 +4,28 @@ import pickle
 from pathlib import Path
 from multiprocessing import Lock
 from multiprocessing.managers import BaseManager
-from llama_index import Document, Prompt, download_loader, GPTVectorStoreIndex, ServiceContext, StorageContext, \
-    load_index_from_storage, SimpleDirectoryReader
+from llama_index import (
+    Document,
+    Prompt,
+    download_loader,
+    GPTVectorStoreIndex,
+    ServiceContext,
+    StorageContext,
+    load_index_from_storage,
+    SimpleDirectoryReader,
+)
+from llama_index.llms import OpenAI
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
 from app.data.models.qa import Source
 from app.utils.log_util import logger
 from app.utils import jsonl_util, data_util
 
-llama_index_home = "./llama_index_server"
+
+llama_index_home = "app/llama_index_server"
 os.environ["LLAMA_INDEX_CACHE_DIR"] = f"{llama_index_home}/llama_index_cache"
 index_path = f"{llama_index_home}/saved_index"
-csv_path = f"./documents/golf-knowledge-base.csv"
+csv_path = "app/documents/golf-knowledge-base.csv"
 jsonl_path = csv_path.replace(".csv", ".jsonl")
 pkl_path = f"{llama_index_home}/pkl/stored_documents.pkl"
 answer_to_irrelevant_question = "This question is not relevant to golf."
@@ -33,27 +43,35 @@ prompt_template_string = (
 index = None
 stored_docs = {}
 lock = Lock()
+current_model = Source.CHATGPT4
 
 
 def initialize_index():
     """Create a new global index, or load one from the pre-set path."""
     global index, stored_docs
-    service_context = ServiceContext.from_defaults()
+    llm = OpenAI(temperature=0.1, model=current_model)
+    service_context = ServiceContext.from_defaults(llm=llm)
     with lock:
         if os.path.exists(index_path):
             logger.info(f"Loading index from dir: {index_path}")
-            index = load_index_from_storage(StorageContext.from_defaults(persist_dir=index_path),
-                                            service_context=service_context)
+            index = load_index_from_storage(
+                StorageContext.from_defaults(persist_dir=index_path),
+                service_context=service_context,
+            )
         else:
-            data_util.assert_true(os.path.exists(csv_path) or os.path.exists(jsonl_path),
-                                  f"both csv and jsonl file are not found: {csv_path}, {jsonl_path}")
+            data_util.assert_true(
+                os.path.exists(csv_path) or os.path.exists(jsonl_path),
+                f"both csv and jsonl file are not found: {csv_path}, {jsonl_path}",
+            )
             if not os.path.exists(jsonl_path):
                 logger.info(f"Converting csv to jsonl: {csv_path} -> {jsonl_path}")
                 jsonl_util.csv_to_jsonl(csv_path, jsonl_path)
             json_reader = download_loader("JSONReader")
             loader = json_reader()
             documents = loader.load_data(file=Path(jsonl_path), is_jsonl=True)
-            index = GPTVectorStoreIndex.from_documents(documents, service_context=service_context)
+            index = GPTVectorStoreIndex.from_documents(
+                documents, service_context=service_context
+            )
             logger.info("Using GPTVectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
         if os.path.exists(pkl_path):
@@ -68,18 +86,18 @@ def query_index(query_text) -> Dict[str, Any]:
     logger.info(f"Query test: {query_text}")
     # first search locally
     local_query_engine = index.as_query_engine(
-        response_synthesizer=get_response_synthesizer(response_mode=ResponseMode.NO_TEXT),
-        node_postprocessors=[
-            SimilarityPostprocessor(similarity_cutoff=0.85)
-        ]
+        response_synthesizer=get_response_synthesizer(
+            response_mode=ResponseMode.NO_TEXT
+        ),
+        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=0.85)],
     )
     local_query_response = local_query_engine.query(query_text)
     if len(local_query_response.source_nodes) > 0:
         text = local_query_response.source_nodes[0].text
-        if 'answer\": ' in text:
-            answer_text = text.split('answer\": ')[1].strip("\"\n}")
-            if 'category\": ' in text:
-                category = text.split('category\": ')[1].split(',')[0].strip("\"\n}")
+        if 'answer": ' in text:
+            answer_text = text.split('answer": ')[1].strip('"\n}')
+            if 'category": ' in text:
+                category = text.split('category": ')[1].split(",")[0].strip('"\n}')
                 category = None if data_util.is_empty(category) else category
             else:
                 category = None
@@ -100,7 +118,7 @@ def query_index(query_text) -> Dict[str, Any]:
     return {
         "category": None,
         "question": query_text,
-        "source": Source.CHATGPT35,
+        "source": current_model,
         "answer": answer_text,
     }
 
@@ -144,12 +162,13 @@ def main():
     initialize_index()
     logger.info("initializing index... done")
     # setup server
-    manager = BaseManager(address=('', 5602), authkey=b'password')
-    manager.register('query_index', query_index)
-    manager.register('insert_text_into_index', insert_text_into_index)
-    manager.register('insert_file_into_index', insert_file_into_index)
-    manager.register('get_documents_list', get_documents_list)
+    manager = BaseManager(address=("localhost", 5602), authkey=b"password")
+    manager.register("query_index", query_index)
+    manager.register("insert_text_into_index", insert_text_into_index)
+    manager.register("insert_file_into_index", insert_file_into_index)
+    manager.register("get_documents_list", get_documents_list)
     server = manager.get_server()
+
     logger.info("server started...")
     server.serve_forever()
 

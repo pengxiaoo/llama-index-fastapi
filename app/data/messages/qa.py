@@ -9,15 +9,11 @@ class QuestionAnsweringRequest(BaseModel):
 
     class ConfigDict:
         json_schema_extra = {
-            "example_golf_relevant_1": {
-                "question": "How to play golf in bad whether?"
-            },
+            "example_golf_relevant_1": {"question": "How to play golf in bad whether?"},
             "example_golf_relevant_2": {
                 "question": "How much money it will cost if I buy a full set of golf clubs?"
             },
-            "example_not_relevant": {
-                "question": "What is the capital of China?"
-            },
+            "example_not_relevant": {"question": "What is the capital of China?"},
         }
 
 
