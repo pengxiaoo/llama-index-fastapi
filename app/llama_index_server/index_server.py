@@ -22,10 +22,12 @@ from app.utils.log_util import logger
 from app.utils import jsonl_util, data_util
 
 
-llama_index_home = "app/llama_index_server"
+current_dir = os.path.dirname(__file__)
+parent_dir = os.path.dirname(current_dir)
+llama_index_home = os.path.join(parent_dir, "llama_index_server")
 os.environ["LLAMA_INDEX_CACHE_DIR"] = f"{llama_index_home}/llama_index_cache"
 index_path = f"{llama_index_home}/saved_index"
-csv_path = "app/documents/golf-knowledge-base.csv"
+csv_path = os.path.join(parent_dir, "documents/golf-knowledge-base.csv")
 jsonl_path = csv_path.replace(".csv", ".jsonl")
 pkl_path = f"{llama_index_home}/pkl/stored_documents.pkl"
 answer_to_irrelevant_question = "This question is not relevant to golf."
