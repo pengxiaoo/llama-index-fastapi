@@ -9,11 +9,11 @@
 
 #### When asking a question in the knowledge base
 
-<img src="./imgs/question_answering_demo_1.png" alt="pic" width="700"/>
+<img src="./imgs/question_answering_demo_1.png" alt="pic" width="1200"/>
 
 #### When asking a question which is not relevant to the topic
 
-<img src="./imgs/question_answering_demo_2.png" alt="pic" width="300"/>
+<img src="./imgs/question_answering_demo_2.png" alt="pic" width="500"/>
 
 ## More details
 
