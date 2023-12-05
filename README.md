@@ -7,9 +7,13 @@
 - if the question is not relevant to the topic(in our case the topic is Golf), the bot will call openAI's chatgpt api to
   get the answer
 
-[demo: when asking a question in the knowledge base](./imgs/question_answering_demo_1.png)
+#### When asking a question in the knowledge base
 
-[demo: when asking a question which is not relevant to the topic](./imgs/question_answering_demo_1.png)
+<img src="./imgs/question_answering_demo_1.png" alt="pic" width="700"/>
+
+#### When asking a question which is not relevant to the topic
+
+<img src="./imgs/question_answering_demo_2.png" alt="pic" width="300"/>
 
 ## More details
 
@@ -21,11 +25,12 @@
   as the model
 - concurrency is naturally supported
 
-## next steps
+## Next steps
 
 - advanced index management, such as index update, index pruning or remove, etc
 - use openAI's Assistant API as the search engine(I've already tried, but it is not as good as llama index at the
   moment)
+- try and compare different embedding methods and llm models.
 - more test cases
 
 ## Development

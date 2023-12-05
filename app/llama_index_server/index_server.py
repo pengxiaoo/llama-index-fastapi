@@ -30,7 +30,7 @@ index_path = f"{llama_index_home}/saved_index"
 csv_path = os.path.join(parent_dir, "documents/golf-knowledge-base.csv")
 jsonl_path = csv_path.replace(".csv", ".jsonl")
 pkl_path = f"{llama_index_home}/pkl/stored_documents.pkl"
-
+similarity_cutoff = 0.85
 prompt_template_string = (
     "We have provided context information below. \n"
     "---------------------\n"
@@ -91,7 +91,7 @@ def query_index(query_text) -> Dict[str, Any]:
         response_synthesizer=get_response_synthesizer(
             response_mode=ResponseMode.NO_TEXT
         ),
-        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=0.85)],
+        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=similarity_cutoff)],
     )
     local_query_response = local_query_engine.query(query_text)
     if len(local_query_response.source_nodes) > 0:
