@@ -160,3 +160,8 @@ cython_debug/
 #.idea/
 app/llama_index_server/*
 
+documents/*.jsonl
+.DS_Store
+.idea/
+*/.DS_Store
+*/.idea/

@@ -2,6 +2,8 @@ from pydantic import BaseModel
 from fastapi import HTTPException
 from app.data.messages.status_code import StatusCode
 
+ANSWER_TO_IRRELEVANT_QUESTION = "This question is not relevant to golf."
+
 
 class BaseResponseModel(BaseModel):
     """
@@ -28,10 +30,10 @@ class CustomHTTPException(HTTPException):
     custom_status_code: str = None
 
     def __init__(
-        self,
-        http_status_code: int = 500,
-        custom_status_code: str = None,
-        detail: str = None,
+            self,
+            http_status_code: int = 500,
+            custom_status_code: str = None,
+            detail: str = None,
     ):
         if detail and ": " in detail:
             detail = detail.split(": ")[-1].rstrip(".")

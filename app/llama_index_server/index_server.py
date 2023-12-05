@@ -18,6 +18,7 @@ from llama_index.llms import OpenAI
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
 from app.data.models.qa import Source
+from app.data.messages.response import ANSWER_TO_IRRELEVANT_QUESTION
 from app.utils.log_util import logger
 from app.utils import jsonl_util, data_util
 
@@ -29,7 +30,7 @@ index_path = f"{llama_index_home}/saved_index"
 csv_path = os.path.join(parent_dir, "documents/golf-knowledge-base.csv")
 jsonl_path = csv_path.replace(".csv", ".jsonl")
 pkl_path = f"{llama_index_home}/pkl/stored_documents.pkl"
-answer_to_irrelevant_question = "This question is not relevant to golf."
+
 prompt_template_string = (
     "We have provided context information below. \n"
     "---------------------\n"
@@ -38,13 +39,13 @@ prompt_template_string = (
     "Given this information, assume you are an experienced golf coach, "
     "please give short, accurate, precise, simple answer to the golfer beginner's question, "
     "limited to 80 words maximum. If the question is not relevant to golf, please answer "
-    f"'{answer_to_irrelevant_question}'.\n"
+    f"'{ANSWER_TO_IRRELEVANT_QUESTION}'.\n"
     "The question is: {query_str}\n"
 )
 index = None
 stored_docs = {}
 lock = Lock()
-current_model = Source.CHATGPT4
+current_model = Source.CHATGPT35
 
 
 def initialize_index():
