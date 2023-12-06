@@ -2,8 +2,6 @@ from pydantic import BaseModel
 from fastapi import HTTPException
 from app.data.messages.status_code import StatusCode
 
-ANSWER_TO_IRRELEVANT_QUESTION = "This question is not relevant to golf."
-
 
 class BaseResponseModel(BaseModel):
     """

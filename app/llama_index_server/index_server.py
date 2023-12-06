@@ -17,8 +17,7 @@ from llama_index import (
 from llama_index.llms import OpenAI
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
-from app.data.models.qa import Source
-from app.data.messages.response import ANSWER_TO_IRRELEVANT_QUESTION
+from app.data.models.qa import Source, get_default_answer_id
 from app.utils.log_util import logger
 from app.utils import jsonl_util, data_util
 
@@ -26,7 +25,7 @@ current_dir = os.path.dirname(__file__)
 parent_dir = os.path.dirname(current_dir)
 llama_index_home = os.path.join(parent_dir, "llama_index_server")
 os.environ["LLAMA_INDEX_CACHE_DIR"] = f"{llama_index_home}/llama_index_cache"
-index_path = f"{llama_index_home}/saved_index"
+index_path = f"{llama_index_home}/saved_index/docstore.json"
 csv_path = os.path.join(parent_dir, "documents/golf-knowledge-base.csv")
 jsonl_path = csv_path.replace(".csv", ".jsonl")
 pkl_path = f"{llama_index_home}/pkl/stored_documents.pkl"
@@ -39,7 +38,7 @@ prompt_template_string = (
     "Given this information, assume you are an experienced golf coach, "
     "please give short, accurate, precise, simple answer to the golfer beginner's question, "
     "limited to 80 words maximum. If the question is not relevant to golf, please answer "
-    f"'{ANSWER_TO_IRRELEVANT_QUESTION}'.\n"
+    f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )
 index = None

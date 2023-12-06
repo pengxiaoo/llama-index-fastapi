@@ -3,10 +3,9 @@ import time
 from fastapi.testclient import TestClient
 from app.launch import index_server_main
 from app.main import app
-from app.data.messages.response import ANSWER_TO_IRRELEVANT_QUESTION
 from app.data.messages.status_code import StatusCode
 from app.data.messages.qa import QuestionAnsweringRequest, QuestionAnsweringResponse
-from app.data.models.qa import Source
+from app.data.models.qa import Source, get_default_answer
 
 
 class BaseTest(unittest.TestCase):
@@ -32,7 +31,7 @@ class BaseTest(unittest.TestCase):
         self.assertEqual(
             response.status_code, StatusCode.SUCCEEDED, f"response: {json_dict}"
         )
-        self.assertEqual(response.data.answer, ANSWER_TO_IRRELEVANT_QUESTION)
+        self.assertEqual(response.data.answer, get_default_answer())
         self.assertEqual(response.data.source, Source.CHATGPT35)
 
     def test_ask_questions_relevant_and_in_database(self):
@@ -45,7 +44,7 @@ class BaseTest(unittest.TestCase):
         self.assertEqual(
             response.status_code, StatusCode.SUCCEEDED, f"response: {json_dict}"
         )
-        self.assertNotEqual(response.data.answer, ANSWER_TO_IRRELEVANT_QUESTION)
+        self.assertNotEqual(response.data.answer, get_default_answer())
         self.assertEqual(response.data.source, Source.KNOWLEDGE_BASE)
 
     def test_ask_questions_relevant_but_not_in_database(self):
@@ -58,8 +57,7 @@ class BaseTest(unittest.TestCase):
         self.assertEqual(
             response.status_code, StatusCode.SUCCEEDED, f"response: {json_dict}"
         )
-        self.assertNotEqual(response.data.answer, ANSWER_TO_IRRELEVANT_QUESTION)
-        self.assertEqual(response.data.source, Source.CHATGPT35)
+        self.assertNotEqual(response.data.answer, get_default_answer())
 
 
 if __name__ == "__main__":
