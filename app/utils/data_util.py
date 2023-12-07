@@ -40,4 +40,4 @@ def del_if_exists(data: dict, keys: List[str]):
 
 def chunks(long_list, chunk_size):
     for i in range(0, len(long_list), chunk_size):
-        yield long_list[i:i + chunk_size]
+        yield long_list[i : i + chunk_size]

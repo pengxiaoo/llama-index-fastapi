@@ -15,11 +15,13 @@ class QuestionAnsweringRequest(BaseModel):
             "example_relevant_but_not_in_database": {
                 "question": "How much money it will cost if I buy a full set of golf clubs?"
             },
-            "example_not_relevant": {
-                "question": "What is the capital of China?"
-            },
+            "example_not_relevant": {"question": "What is the capital of China?"},
         }
 
 
 class QuestionAnsweringResponse(BaseResponseModel):
     data: Optional[Answer] = Field(None, description="answer to the question")
+
+
+class DeleteDocumentResponse(BaseResponseModel):
+    """DeleteDocumentResponse"""

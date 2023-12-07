@@ -1,9 +1,12 @@
 import logging
+import os
 import sys
+
+LOG_LEVEL = os.environ.get("QA_SERVICE_LOG_LEVEL", "DEBUG")
 
 logging.basicConfig(
     stream=sys.stdout,
-    level=logging.DEBUG,
+    level=LOG_LEVEL,
     format="[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s",
 )
 logger = logging.getLogger(__name__)

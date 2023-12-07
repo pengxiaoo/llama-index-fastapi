@@ -1,5 +1,6 @@
+import atexit
 import os
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import pickle
 from pathlib import Path
 from multiprocessing import Lock
@@ -14,6 +15,7 @@ from llama_index import (
     load_index_from_storage,
     SimpleDirectoryReader,
 )
+from llama_index.indices.base import BaseIndex
 from llama_index.llms import OpenAI
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
@@ -41,7 +43,7 @@ prompt_template_string = (
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )
-index = None
+index: Optional[BaseIndex] = None
 stored_docs = {}
 lock = Lock()
 current_model = Source.CHATGPT35
@@ -56,9 +58,13 @@ def initialize_index():
         if os.path.exists(index_path):
             logger.info(f"Loading index from dir: {index_path}")
             index = load_index_from_storage(
-                StorageContext.from_defaults(persist_dir=index_path),
+                StorageContext.from_defaults(persist_dir=os.path.dirname(index_path)),
                 service_context=service_context,
             )
+            if os.path.exists(pkl_path):
+                logger.info(f"Loading from pickle: {pkl_path}")
+                with open(pkl_path, "rb") as f:
+                    stored_docs = pickle.load(f)
         else:
             data_util.assert_true(
                 os.path.exists(csv_path) or os.path.exists(jsonl_path),
@@ -73,12 +79,16 @@ def initialize_index():
             index = GPTVectorStoreIndex.from_documents(
                 documents, service_context=service_context
             )
+            for doc in documents:
+                stored_docs[doc.doc_id] = doc.text
             logger.info("Using GPTVectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
-        if os.path.exists(pkl_path):
-            logger.info(f"Loading from pickle: {pkl_path}")
-            with open(pkl_path, "rb") as f:
-                stored_docs = pickle.load(f)
+
+
+def persist_index(index: BaseIndex, stored_docs: Dict[Any, Any]):
+    index.storage_context.persist(persist_dir=os.path.dirname(index_path))
+    with open(pkl_path, "wb") as f:
+        pickle.dump(stored_docs, f)
 
 
 def query_index(query_text) -> Dict[str, Any]:
@@ -139,13 +149,13 @@ def insert_into_index(document, doc_id=None):
     global index, stored_docs
     if doc_id is not None:
         document.doc_id = doc_id
+    logger.info(f"Insert document with doc id = {document.doc_id}")
     with lock:
         # Keep track of stored docs -- llama_index doesn't make this easy
         stored_docs[document.doc_id] = document.text
         index.insert(document)
-        index.storage_context.persist(persist_dir=index_path)
-        with open(pkl_path, "wb") as f:
-            pickle.dump(stored_docs, f)
+        # TODO: a little heavy for each doc
+        persist_index(index, stored_docs)
 
 
 def get_documents_list():
@@ -155,6 +165,17 @@ def get_documents_list():
     for doc_id, doc_text in stored_docs.items():
         documents_list.append({"id": doc_id, "text": doc_text})
     return documents_list
+
+
+def delete_doc(doc_id):
+    global index, stored_docs
+    logger.info(f"Delete document with doc id: {doc_id}")
+    if index:
+        index.delete_ref_doc(doc_id)
+        store = index.docstore
+        value = stored_docs.pop(doc_id, None)
+        if value:
+            store.delete_ref_doc(doc_id)
 
 
 def main():
@@ -168,6 +189,7 @@ def main():
     manager.register("insert_text_into_index", insert_text_into_index)
     manager.register("insert_file_into_index", insert_file_into_index)
     manager.register("get_documents_list", get_documents_list)
+    manager.register("delete_doc", delete_doc)
     server = manager.get_server()
 
     logger.info("server started...")
