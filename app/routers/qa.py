@@ -1,6 +1,10 @@
 from fastapi import APIRouter
 from app.data.models.qa import Answer
-from app.data.messages.qa import QuestionAnsweringRequest, QuestionAnsweringResponse
+from app.data.messages.qa import (
+    DeleteDocumentResponse,
+    QuestionAnsweringRequest,
+    QuestionAnsweringResponse,
+)
 from app.utils.log_util import logger
 from app.utils import manager_util
 
@@ -35,3 +39,15 @@ async def get_document_list():
     manager = manager_util.get_manager()
     documents = manager.get_document_list()._getvalue()
     return QuestionAnsweringResponse(data=documents)
+
+
+@qa_router.delete(
+    "/documents/{doc_id}",
+    response_model=DeleteDocumentResponse,
+    description="only for testing",
+)
+async def delete_doc(doc_id: str):
+    logger.info(f"Delete doc for {doc_id}")
+    manager = manager_util.get_manager()
+    manager.delete_doc(doc_id)
+    return DeleteDocumentResponse(msg=f"Successfully deleted {doc_id}")
