@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Path
 from app.data.models.qa import Answer
 from app.data.messages.qa import (
     DeleteDocumentResponse,
@@ -18,7 +18,7 @@ qa_router = APIRouter(
     "/query",
     response_model=QuestionAnsweringResponse,
     description="ask questions related to the knowledge base, return the answer if there is a good match, "
-    "otherwise turn to chatgpt for answer",
+                "otherwise turn to chatgpt for answer",
 )
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
@@ -46,7 +46,7 @@ async def get_document_list():
     response_model=DeleteDocumentResponse,
     description="only for testing",
 )
-async def delete_doc(doc_id: str):
+async def delete_doc(doc_id: str = Path(..., title="The ID of the document to delete")):
     logger.info(f"Delete doc for {doc_id}")
     manager = manager_util.get_manager()
     manager.delete_doc(doc_id)

@@ -1,4 +1,3 @@
-import atexit
 import os
 from typing import Dict, Any, Optional
 import pickle
@@ -9,7 +8,7 @@ from llama_index import (
     Document,
     Prompt,
     download_loader,
-    GPTVectorStoreIndex,
+    VectorStoreIndex,
     ServiceContext,
     StorageContext,
     load_index_from_storage,
@@ -58,7 +57,7 @@ def initialize_index():
         if os.path.exists(index_path):
             logger.info(f"Loading index from dir: {index_path}")
             index = load_index_from_storage(
-                StorageContext.from_defaults(persist_dir=os.path.dirname(index_path)),
+                StorageContext.from_defaults(persist_dir=index_path),
                 service_context=service_context,
             )
             if os.path.exists(pkl_path):
@@ -76,17 +75,17 @@ def initialize_index():
             json_reader = download_loader("JSONReader")
             loader = json_reader()
             documents = loader.load_data(file=Path(jsonl_path), is_jsonl=True)
-            index = GPTVectorStoreIndex.from_documents(
+            index = VectorStoreIndex.from_documents(
                 documents, service_context=service_context
             )
             for doc in documents:
                 stored_docs[doc.doc_id] = doc.text
-            logger.info("Using GPTVectorStoreIndex")
+            logger.info("Using VectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
 
 
 def query_index(query_text) -> Dict[str, Any]:
-    """Query the global index."""
+    data_util.assert_not_none(query_text, "query cannot be none")
     global index
     logger.info(f"Query test: {query_text}")
     # first search locally
@@ -145,17 +144,13 @@ def insert_into_index(document, doc_id=None):
         document.doc_id = doc_id
     logger.info(f"Insert document with doc id = {document.doc_id}")
     with lock:
-        # Keep track of stored docs -- llama_index doesn't make this easy
-        stored_docs[document.doc_id] = document.text
         index.insert(document)
         # TODO: a little heavy for each doc
-        persist_index(index, stored_docs)
-
-
-def persist_index(index: BaseIndex, stored_docs: Dict[Any, Any]):
-    index.storage_context.persist(persist_dir=os.path.dirname(index_path))
-    with open(pkl_path, "wb") as f:
-        pickle.dump(stored_docs, f)
+        index.storage_context.persist(persist_dir=os.path.dirname(index_path))
+        # Keep track of stored docs -- llama_index doesn't make this easy
+        stored_docs[document.doc_id] = document.text
+        with open(pkl_path, "wb") as f:
+            pickle.dump(stored_docs, f)
 
 
 def get_documents_list():
@@ -168,14 +163,15 @@ def get_documents_list():
 
 
 def delete_doc(doc_id):
+    data_util.assert_not_none(doc_id, "doc_id cannot be none")
     global index, stored_docs
     logger.info(f"Delete document with doc id: {doc_id}")
-    if index:
-        index.delete_ref_doc(doc_id)
-        store = index.docstore
-        value = stored_docs.pop(doc_id, None)
-        if value:
-            store.delete_ref_doc(doc_id)
+    with lock:
+        if index:
+            index.delete_ref_doc(doc_id)
+            value = stored_docs.pop(doc_id, None)
+            if value:
+                index.docstore.delete_ref_doc(doc_id)
 
 
 def main():

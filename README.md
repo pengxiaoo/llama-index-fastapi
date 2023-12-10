@@ -38,6 +38,7 @@
 - Setup Environment
 
 ```shell
+export OPENAI_API_KEY=your_openai_api_key
 virtualenv -p python3.9 env
 source env/bin/activate
 pip install -r requirements.txt

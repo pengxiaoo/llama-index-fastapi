@@ -28,6 +28,11 @@ def now():
     return datetime.now().isoformat()
 
 
+def get_doc_id(text: str):
+    # todo: use a better way to generate doc_id
+    return text
+
+
 def is_empty(value: Any):
     return value is None or value == "" or value == [] or value == {}
 
@@ -40,4 +45,4 @@ def del_if_exists(data: dict, keys: List[str]):
 
 def chunks(long_list, chunk_size):
     for i in range(0, len(long_list), chunk_size):
-        yield long_list[i : i + chunk_size]
+        yield long_list[i: i + chunk_size]
