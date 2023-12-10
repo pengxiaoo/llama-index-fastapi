@@ -38,7 +38,7 @@ prompt_template_string = (
     "{context_str}"
     "\n---------------------\n"
     "Given this information, assume you are an experienced golf coach, "
-    "please give short, accurate, precise, simple answer to the golfer beginner's question, "
+    "please give short, simple, accurate, precise answer to the golfer beginner's question, "
     "limited to 80 words maximum. If the question is not relevant to golf, please answer "
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
@@ -83,12 +83,6 @@ def initialize_index():
                 stored_docs[doc.doc_id] = doc.text
             logger.info("Using GPTVectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
-
-
-def persist_index(index: BaseIndex, stored_docs: Dict[Any, Any]):
-    index.storage_context.persist(persist_dir=os.path.dirname(index_path))
-    with open(pkl_path, "wb") as f:
-        pickle.dump(stored_docs, f)
 
 
 def query_index(query_text) -> Dict[str, Any]:
@@ -156,6 +150,12 @@ def insert_into_index(document, doc_id=None):
         index.insert(document)
         # TODO: a little heavy for each doc
         persist_index(index, stored_docs)
+
+
+def persist_index(index: BaseIndex, stored_docs: Dict[Any, Any]):
+    index.storage_context.persist(persist_dir=os.path.dirname(index_path))
+    with open(pkl_path, "wb") as f:
+        pickle.dump(stored_docs, f)
 
 
 def get_documents_list():
