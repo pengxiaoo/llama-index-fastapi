@@ -18,6 +18,7 @@ def get_default_answer():
 
 class Source(str, Enum):
     KNOWLEDGE_BASE = "knowledge-base"
+    USER_ASKED = "user-asked"
     CHATGPT35 = "gpt-3.5-turbo"
     CHATGPT4 = "gpt-4"
     CLAUDE_2 = "claude-2"
@@ -30,6 +31,7 @@ class Answer(BaseModel):
         None, description="Category of the question, if it can be recognized"
     )
     question: str = Field(..., description="the original question")
+    matched_question: Optional[str] = Field(None, description="matched question, if any")
     source: Source = Field(..., description="Source of the answer")
     answer: str = Field(..., description="answer to the question")
 

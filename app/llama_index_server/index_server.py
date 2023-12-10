@@ -1,4 +1,5 @@
 import os
+import time
 from typing import Dict, Any, Optional
 import pickle
 from pathlib import Path
@@ -44,6 +45,17 @@ prompt_template_string = (
 )
 index: Optional[BaseIndex] = None
 stored_docs = {}
+# TODO: use mongodb to replace pickle for stored_docs
+"""
+stored_docs stores documents from both user's questions and the knowledge base.
+the key is doc_id, in current version it is the question text itself; 
+the value is a tuple of 4 elements: 
+    doc_text: str,  which is the whole text of the document, typically contains question, answer, and category;
+    from_knowledge_base: bool, which indicates whether the document is from knowledge base;
+    insert_timestamp: float, which is the timestamp when the document is inserted;
+    query_timestamps: List[float], which is a list of timestamps when the document is queried;
+query_timestamps indicates the popularity of the document.
+"""
 lock = Lock()
 current_model = Source.CHATGPT35
 
@@ -54,7 +66,7 @@ def initialize_index():
     llm = OpenAI(temperature=0.1, model=current_model)
     service_context = ServiceContext.from_defaults(llm=llm)
     with lock:
-        if os.path.exists(index_path):
+        if os.path.exists(index_path) and os.path.exists(index_path + "/docstore.json"):
             logger.info(f"Loading index from dir: {index_path}")
             index = load_index_from_storage(
                 StorageContext.from_defaults(persist_dir=index_path),
@@ -79,14 +91,18 @@ def initialize_index():
                 documents, service_context=service_context
             )
             for doc in documents:
-                stored_docs[doc.doc_id] = doc.text
+                question = doc.text.split('question": ')[1].split(",\n")[0].strip('"')
+                doc_id = data_util.get_doc_id(question)
+                stored_docs[doc_id] = doc.text, True, time.time(), []
             logger.info("Using VectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
+            with open(pkl_path, "wb") as f:
+                pickle.dump(stored_docs, f)
 
 
 def query_index(query_text) -> Dict[str, Any]:
     data_util.assert_not_none(query_text, "query cannot be none")
-    global index
+    global index, stored_docs
     logger.info(f"Query test: {query_text}")
     # first search locally
     local_query_engine = index.as_query_engine(
@@ -98,7 +114,18 @@ def query_index(query_text) -> Dict[str, Any]:
     local_query_response = local_query_engine.query(query_text)
     if len(local_query_response.source_nodes) > 0:
         text = local_query_response.source_nodes[0].text
+        # TODO encapsulate the following text extractions to functions
         if 'answer": ' in text:
+            matched_question = text.split('question": ')[1].split(",\n")[0].strip('"')
+            matched_doc_id = data_util.get_doc_id(matched_question)
+            if matched_doc_id in stored_docs:
+                stored_docs[matched_doc_id][3].append(time.time())
+                from_knowledge_base = stored_docs[matched_doc_id][1]
+            else:
+                # means the document has been removed from stored_docs
+                logger.warning(f"'{matched_doc_id}' is not found in stored_docs")
+                stored_docs[matched_doc_id] = text, False, time.time(), []
+                from_knowledge_base = False
             answer_text = text.split('answer": ')[1].strip('"\n}')
             if 'category": ' in text:
                 category = text.split('category": ')[1].split(",")[0].strip('"\n}')
@@ -108,7 +135,8 @@ def query_index(query_text) -> Dict[str, Any]:
             return {
                 "category": category,
                 "question": query_text,
-                "source": Source.KNOWLEDGE_BASE,
+                "matched_question": matched_question,
+                "source": Source.KNOWLEDGE_BASE if from_knowledge_base else Source.USER_ASKED,
                 "answer": answer_text,
             }
     # if not found, turn to LLM
@@ -117,8 +145,9 @@ def query_index(query_text) -> Dict[str, Any]:
     response = llm_query_engine.query(query_text)
     answer_text = str(response)
     # save the question-answer pair to index
-    question_answer_pair = f'"source": "conversation", "category": "", "question": {query_text}, "answer": {answer_text}'
-    insert_text_into_index(question_answer_pair)
+    question_answer_pair = f'"source": {Source.USER_ASKED}, "category": "", "question": {query_text}, "answer": {answer_text}'
+    doc_id = data_util.get_doc_id(query_text)
+    insert_text_into_index(question_answer_pair, doc_id)
     return {
         "category": None,
         "question": query_text,
@@ -127,7 +156,7 @@ def query_index(query_text) -> Dict[str, Any]:
     }
 
 
-def insert_text_into_index(text, doc_id=None):
+def insert_text_into_index(text, doc_id):
     document = Document(text=text)
     insert_into_index(document, doc_id=doc_id)
 
@@ -146,20 +175,20 @@ def insert_into_index(document, doc_id=None):
     with lock:
         index.insert(document)
         # TODO: a little heavy for each doc
-        index.storage_context.persist(persist_dir=os.path.dirname(index_path))
+        index.storage_context.persist(persist_dir=index_path)
         # Keep track of stored docs -- llama_index doesn't make this easy
-        stored_docs[document.doc_id] = document.text
+        stored_docs[document.doc_id] = document.text, False, time.time(), []
+        # prune docs from user questions and are not re-queried in 7 days
+        for doc_id, (doc_text, from_knowledge_base, insert_timestamp, query_timestamps) in stored_docs.items():
+            if not from_knowledge_base \
+                    and time.time() - insert_timestamp > 7 * 24 * 60 * 60 \
+                    and len(query_timestamps) == 0:
+                index.delete_ref_doc(doc_id)
+                value = stored_docs.pop(doc_id, None)
+                if value:
+                    index.docstore.delete_ref_doc(doc_id)
         with open(pkl_path, "wb") as f:
             pickle.dump(stored_docs, f)
-
-
-def get_documents_list():
-    """Get the list of currently stored documents."""
-    global stored_docs
-    documents_list = []
-    for doc_id, doc_text in stored_docs.items():
-        documents_list.append({"id": doc_id, "text": doc_text})
-    return documents_list
 
 
 def delete_doc(doc_id):
@@ -174,6 +203,20 @@ def delete_doc(doc_id):
                 index.docstore.delete_ref_doc(doc_id)
 
 
+def get_document(doc_id):
+    global stored_docs
+    for stored_doc_id, (doc_text, from_knowledge_base, insert_timestamp, query_timestamps) in stored_docs.items():
+        if doc_id == stored_doc_id:
+            return {
+                "doc_id": doc_id,
+                "doc_text": doc_text,
+                "from_knowledge_base": from_knowledge_base,
+                "insert_time_display": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(insert_timestamp)),
+                "query_times": len(query_timestamps),
+            }
+    return None
+
+
 def main():
     # init the global index
     logger.info("initializing index...")
@@ -184,7 +227,7 @@ def main():
     manager.register("query_index", query_index)
     manager.register("insert_text_into_index", insert_text_into_index)
     manager.register("insert_file_into_index", insert_file_into_index)
-    manager.register("get_documents_list", get_documents_list)
+    manager.register("get_document", get_document)
     manager.register("delete_doc", delete_doc)
     server = manager.get_server()
 

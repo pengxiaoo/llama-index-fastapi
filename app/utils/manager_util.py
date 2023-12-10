@@ -8,7 +8,7 @@ def get_manager():
     manager.register("query_index")
     manager.register("insert_text_into_index")
     manager.register("insert_file_into_index")
-    manager.register("get_documents_list")
+    manager.register("get_document")
     manager.register("delete_doc")
     manager.connect()
     return manager

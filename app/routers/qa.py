@@ -4,6 +4,8 @@ from app.data.messages.qa import (
     DeleteDocumentResponse,
     QuestionAnsweringRequest,
     QuestionAnsweringResponse,
+    DocumentRequest,
+    DocumentResponse,
 )
 from app.utils.log_util import logger
 from app.utils import manager_util
@@ -29,16 +31,16 @@ async def answer_question(req: QuestionAnsweringRequest):
     return QuestionAnsweringResponse(data=answer)
 
 
-@qa_router.get(
-    "/documents",
-    response_model=QuestionAnsweringResponse,
-    description="only for testing",
+@qa_router.post(
+    "/document/",
+    response_model=DocumentResponse,
+    description="only for testing, check what's inside the document",
 )
-async def get_document_list():
-    logger.info("get document list")
+async def get_document(req: DocumentRequest):
+    logger.info(f"get document for doc_id {req.doc_id}")
     manager = manager_util.get_manager()
-    documents = manager.get_document_list()._getvalue()
-    return QuestionAnsweringResponse(data=documents)
+    document = manager.get_document(req.doc_id)._getvalue()
+    return DocumentResponse(data=document)
 
 
 @qa_router.delete(

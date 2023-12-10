@@ -61,6 +61,12 @@ PYTHONPATH=. python app/launch.py
 pytest -ss
 ```
 
+- Clear saved_index and pickle files
+
+```shell
+rm ./app/llama_index_server/saved_index/* | rm ./app/llama_index_server/pkl/*.pkl
+```
+
 ## Reference
 
 - [llama index official demo doc: fullstack_app_guide](https://docs.llamaindex.ai/en/stable/understanding/putting_it_all_together/apps/fullstack_app_guide.html)
