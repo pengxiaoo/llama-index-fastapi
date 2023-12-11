@@ -44,10 +44,12 @@ prompt_template_string = (
     "The question is: {query_str}\n"
 )
 index: Optional[BaseIndex] = None
+STORED_DOCS_LIMIT = 1000
 stored_docs = {}
 # TODO: use mongodb to replace pickle for stored_docs
 """
 stored_docs stores documents from both user's questions and the knowledge base.
+it has a one to one mapping with the documents in the index.
 the key is doc_id, in current version it is the question text itself; 
 the value is a tuple of 4 elements: 
     doc_text: str,  which is the whole text of the document, typically contains question, answer, and category;
@@ -178,15 +180,16 @@ def insert_into_index(document, doc_id=None):
         index.storage_context.persist(persist_dir=index_path)
         # Keep track of stored docs -- llama_index doesn't make this easy
         stored_docs[document.doc_id] = document.text, False, time.time(), []
-        # prune docs from user questions and are not re-queried in 7 days
-        for doc_id, (doc_text, from_knowledge_base, insert_timestamp, query_timestamps) in stored_docs.items():
-            if not from_knowledge_base \
-                    and time.time() - insert_timestamp > 7 * 24 * 60 * 60 \
-                    and len(query_timestamps) == 0:
-                index.delete_ref_doc(doc_id)
-                value = stored_docs.pop(doc_id, None)
-                if value:
-                    index.docstore.delete_ref_doc(doc_id)
+        if len(stored_docs) > STORED_DOCS_LIMIT:
+            # prune docs from user questions and are not re-queried in 7 days
+            for doc_id, (doc_text, from_knowledge_base, insert_timestamp, query_timestamps) in stored_docs.items():
+                if not from_knowledge_base \
+                        and time.time() - insert_timestamp > 7 * 24 * 60 * 60 \
+                        and len(query_timestamps) == 0:
+                    index.delete_ref_doc(doc_id)
+                    value = stored_docs.pop(doc_id, None)
+                    if value:
+                        index.docstore.delete_ref_doc(doc_id)
         with open(pkl_path, "wb") as f:
             pickle.dump(stored_docs, f)
 
