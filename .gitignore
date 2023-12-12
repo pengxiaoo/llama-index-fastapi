@@ -167,3 +167,5 @@ app/documents/*.jsonl
 .idea/
 */.DS_Store
 */.idea/
+
+.envrc

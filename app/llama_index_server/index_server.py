@@ -50,8 +50,8 @@ stored_docs = {}
 """
 stored_docs stores documents from both user's questions and the knowledge base.
 it has a one to one mapping with the documents in the index.
-the key is doc_id, in current version it is the question text itself; 
-the value is a tuple of 4 elements: 
+the key is doc_id, in current version it is the question text itself;
+the value is a tuple of 4 elements:
     doc_text: str,  which is the whole text of the document, typically contains question, answer, and category;
     from_knowledge_base: bool, which indicates whether the document is from knowledge base;
     insert_timestamp: float, which is the timestamp when the document is inserted;
