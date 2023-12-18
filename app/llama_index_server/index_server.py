@@ -59,13 +59,20 @@ def query_index(query_text) -> Dict[str, Any]:
             matched_question = text.split('question": ')[1].split(",\n")[0].strip('"')
             matched_doc_id = data_util.get_doc_id(matched_question)
             with index_storage.rw_stored_docs() as stored_docs:
-                if matched_doc_id in stored_docs:
-                    stored_docs[matched_doc_id][3].append(time.time())
-                    from_knowledge_base = stored_docs[matched_doc_id][1]
+                finded_doc = stored_docs.find_doc(matched_doc_id)
+                if finded_doc:
+                    finded_doc["query_tss"].append(time.time())
+                    from_knowledge_base =  finded_doc["from_knowledge_base"]
                 else:
                     # means the document has been removed from stored_docs
                     logger.warning(f"'{matched_doc_id}' is not found in stored_docs")
-                    stored_docs[matched_doc_id] = text, False, time.time(), []
+                    data = {
+                        "doc_text": text,
+                        "from_knowledge_base": False,
+                        "insert_ts": time.time(),
+                        "query_tss": []
+                    }
+                    stored_docs.insert_doc(matched_doc_id, data)
                     from_knowledge_base = False
             answer_text = text.split('answer": ')[1].strip('"\n}')
             if 'category": ' in text:
@@ -121,15 +128,17 @@ def delete_doc(doc_id):
 
 def get_document(doc_id):
     with index_storage.r_stored_docs() as stored_docs:
-        for stored_doc_id, (doc_text, from_knowledge_base, insert_timestamp, query_timestamps) in stored_docs.items():
-            if doc_id == stored_doc_id:
-                return {
-                    "doc_id": doc_id,
-                    "doc_text": doc_text,
-                    "from_knowledge_base": from_knowledge_base,
-                    "insert_time_display": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(insert_timestamp)),
-                    "query_times": len(query_timestamps),
-                }
+        result = stored_docs.find_doc(doc_id)
+        if result:
+            return {
+                "doc_id": doc_id,
+                "doc_text": result["doc_text"],
+                "from_knowledge_base": result["from_knowledge_base"],
+                "insert_time_display": time.strftime(
+                    "%Y-%m-%d %H:%M:%S", time.localtime(result["insert_timestamp"])
+                ),
+                "query_times": len(result["query_tss"]),
+            }
     return None
 
 
