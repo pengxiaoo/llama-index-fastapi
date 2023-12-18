@@ -13,7 +13,7 @@ def index_server_main() -> Process:
     return index_server_process
 
 
-def main():
+def old_main():
     index_process = None
     try:
         index_process = index_server_main()
@@ -25,6 +25,14 @@ def main():
     except KeyboardInterrupt:
         if index_process:
             index_process.terminate()
+        # Re-raise to caller
+        raise
+
+
+def main():
+    try:
+        api_main()
+    except KeyboardInterrupt:
         # Re-raise to caller
         raise
 

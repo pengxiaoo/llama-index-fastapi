@@ -10,4 +10,6 @@ logging.basicConfig(
     format="[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.StreamHandler(stream=sys.stdout))
+logger.propagate = True
+handler = logging.StreamHandler(stream=sys.stdout)
+logger.addHandler(handler)

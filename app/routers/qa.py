@@ -8,7 +8,7 @@ from app.data.messages.qa import (
     DocumentResponse,
 )
 from app.utils.log_util import logger
-from app.utils import manager_util
+from app.utils.service import get_service
 
 qa_router = APIRouter(
     prefix="/qa",
@@ -25,8 +25,8 @@ qa_router = APIRouter(
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
     query_text = req.question
-    manager = manager_util.get_manager()
-    data = manager.query_index(query_text)._getvalue()
+    service = get_service("LLAMA_INDEX_SERVICE")
+    data = service.query_index(query_text)
     answer = Answer(**data)
     return QuestionAnsweringResponse(data=answer)
 
@@ -38,8 +38,8 @@ async def answer_question(req: QuestionAnsweringRequest):
 )
 async def get_document(req: DocumentRequest):
     logger.info(f"get document for doc_id {req.doc_id}")
-    manager = manager_util.get_manager()
-    document = manager.get_document(req.doc_id)._getvalue()
+    service = get_service("LLAMA_INDEX_SERVICE")
+    document = service.get_document(req.doc_id)
     return DocumentResponse(data=document)
 
 
@@ -50,6 +50,6 @@ async def get_document(req: DocumentRequest):
 )
 async def delete_doc(doc_id: str = Path(..., title="The ID of the document to delete")):
     logger.info(f"Delete doc for {doc_id}")
-    manager = manager_util.get_manager()
-    manager.delete_doc(doc_id)
+    service = get_service("LLAMA_INDEX_SERVICE")
+    service.delete_doc(doc_id)
     return DeleteDocumentResponse(msg=f"Successfully deleted {doc_id}")
