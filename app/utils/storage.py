@@ -7,6 +7,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from multiprocessing import RLock, Lock
+from typing import Tuple
 
 from llama_index.llms import OpenAI
 from llama_index.indices.base import BaseIndex
@@ -34,12 +35,77 @@ similarity_cutoff = 0.85
 STORED_DOCS_LIMIT = 1000
 
 
+"""
+What is in a row of a stored doc?
+
+- Key: doc_id
+- Value: A dict
+  - doc_text
+  - from_knowledge_base
+  - insert_ts
+  - query_tss
+
+ts = timestamp
+"""
+
+
+class StoredDocs:
+
+    def __init__(self, size_limit, index):
+        self._stored_docs = {}
+        self._size_limit = size_limit
+        self._index = index
+
+    def insert_doc(self, doc_id, value):
+        self._stored_docs[doc_id] = value
+        self.prune()
+
+    def update_doc(self, doc_id, updated_value):
+        value = self._stored_docs[doc_id]
+        value.update(**updated_value)
+        self.insert_doc(doc_id, value)
+
+    def find_doc(self, doc_id):
+        return self._stored_docs.get(doc_id)
+
+    def delete_doc(self, doc_id):
+        return self._stored_docs.pop(doc_id, None)
+
+    def doc_size(self):
+        return len(self._stored_docs)
+
+    def prune(self):
+        if self.doc_size() > self._size_limit:
+            # prune docs from user questions and are not re-queried in 7 days
+            for doc_id, data in self._stored_docs.items():
+                from_knowledge_base = data["from_knowledge_base"]
+                query_timestamps = data["query_tss"]
+                insert_timestamp = data["insert_ts"]
+                if (
+                    not from_knowledge_base
+                    and time.time() - insert_timestamp > 7 * 24 * 60 * 60
+                    and len(query_timestamps) == 0
+                ):
+                    self._index.delete_ref_doc(doc_id)
+                    value = self.delete_doc(doc_id)
+                    if value:
+                        self._index.docstore.delete_ref_doc(doc_id)
+
+    def dump(self, path):
+        with open(path, "wb") as writer:
+            pickle.dump(self._stored_docs, writer)
+
+    def load(self, path):
+        with open(path, "rb") as reader:
+            self._stored_docs.update(pickle.loads(reader.read()))
+        return self._stored_docs
+
+
 class IndexStorage:
     def __init__(self):
-        self._stored_docs = {}
         self._current_model = Source.CHATGPT35
         logger.info("initializing index...")
-        self._index = self.initialize_index()
+        self._index, self._stored_docs = self.initialize_index()
         logger.info("initializing index... done")
         self._rlock = RLock()
         self._rwlock = Lock()
@@ -71,7 +137,7 @@ class IndexStorage:
     def delete_doc(self, doc_id):
         with self._rwlock:
             self._index.delete_ref_doc(doc_id)
-            value = self._stored_docs.pop(doc_id, None)
+            value = self._stored_docs.delete_doc(doc_id)
             if value:
                 self._index.docstore.delete_ref_doc(value)
 
@@ -83,28 +149,16 @@ class IndexStorage:
             # TODO: a little heavy for each doc
             self._index.storage_context.persist(persist_dir=index_path)
             # Keep track of stored docs -- llama_index doesn't make this easy
-            self._stored_docs[doc.doc_id] = doc.text, False, time.time(), []
-            if len(self._stored_docs) > STORED_DOCS_LIMIT:
-                # prune docs from user questions and are not re-queried in 7 days
-                for doc_id, (
-                    _,
-                    from_knowledge_base,
-                    insert_timestamp,
-                    query_timestamps,
-                ) in self._stored_docs.items():
-                    if (
-                        not from_knowledge_base
-                        and time.time() - insert_timestamp > 7 * 24 * 60 * 60
-                        and len(query_timestamps) == 0
-                    ):
-                        self._index.delete_ref_doc(doc_id)
-                        value = self._stored_docs.pop(doc_id, None)
-                        if value:
-                            self._index.docstore.delete_ref_doc(doc_id)
-            with open(pkl_path, "wb") as f:
-                pickle.dump(self._stored_docs, f)
+            data = {
+                "doc_text": doc.text,
+                "from_knowledge_base": False,
+                "insert_ts": time.time(),
+                "query_tss": [],
+            }
+            self._stored_docs.insert_doc(doc.doc_id, data)
+            self._stored_docs.dump(pkl_path)
 
-    def initialize_index(self) -> BaseIndex:
+    def initialize_index(self) -> Tuple[BaseIndex, StoredDocs]:
         """Create a new global index, or load one from the pre-set path."""
         llm = OpenAI(temperature=0.1, model=self._current_model)
         service_context = ServiceContext.from_defaults(llm=llm)
@@ -114,10 +168,10 @@ class IndexStorage:
                 StorageContext.from_defaults(persist_dir=index_path),
                 service_context=service_context,
             )
+            stored_docs = StoredDocs(STORED_DOCS_LIMIT, index)
             if os.path.exists(pkl_path):
                 logger.info(f"Loading from pickle: {pkl_path}")
-                with open(pkl_path, "rb") as f:
-                    self._stored_docs = pickle.load(f)
+                stored_docs.load(pkl_path)
         else:
             data_util.assert_true(
                 os.path.exists(csv_path) or os.path.exists(jsonl_path),
@@ -132,15 +186,21 @@ class IndexStorage:
             index = VectorStoreIndex.from_documents(
                 documents, service_context=service_context
             )
+            stored_docs = StoredDocs(STORED_DOCS_LIMIT, index)
             for doc in documents:
                 question = doc.text.split('question": ')[1].split(",\n")[0].strip('"')
                 doc_id = data_util.get_doc_id(question)
-                self._stored_docs[doc_id] = doc.text, True, time.time(), []
+                data = {
+                    "doc_text": doc.text,
+                    "from_knowledge_base": True,
+                    "insert_ts": time.time(),
+                    "query_tss": [],
+                }
+                stored_docs.insert_doc(doc_id, data)
             logger.info("Using VectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
-            with open(pkl_path, "wb") as f:
-                pickle.dump(self._stored_docs, f)
-        return index
+            stored_docs.dump(pkl_path)
+        return index, stored_docs
 
 
 index_storage = IndexStorage()
