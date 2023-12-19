@@ -1,7 +1,7 @@
 .PHONY: start
 start:
 	# You need to set OPENAPI_API_KEY environment
-	PYTHONPATH=. python app/launch.py
+	PYTHONPATH=. python app/main.py
 
 .PHONY: clean
 clean:
