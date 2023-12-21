@@ -55,13 +55,13 @@ def query_index(query_text) -> Dict[str, Any]:
         text = local_query_response.source_nodes[0].text
         # TODO encapsulate the following text extractions to functions
         if 'answer": ' in text:
-            logger.debug(f"Founded text: {text}")
+            logger.debug(f"Found text: {text}")
             matched_meta = json.loads(text)
             matched_question = matched_meta["question"]
             matched_doc_id = data_util.get_doc_id(matched_question)
             with index_storage.rw_stored_docs() as stored_docs:
                 finded_doc = stored_docs.find_doc(matched_doc_id)
-                logger.info(f"Finded doc: {finded_doc}")
+                logger.debug(f"Found doc: {finded_doc}")
                 if finded_doc:
                     finded_doc["query_tss"].append(time.time())
                     from_knowledge_base =  finded_doc["from_knowledge_base"]
