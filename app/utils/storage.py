@@ -57,6 +57,7 @@ class StoredDocs:
         self._index = index
 
     def insert_doc(self, doc_id, value):
+        logger.debug(f"Insert doc_id: {doc_id}")
         self._stored_docs[doc_id] = value
         self.prune()
 
@@ -66,6 +67,7 @@ class StoredDocs:
         self.insert_doc(doc_id, value)
 
     def find_doc(self, doc_id):
+        logger.debug(f"Finding doc_id = {doc_id}")
         return self._stored_docs.get(doc_id)
 
     def delete_doc(self, doc_id):
@@ -98,6 +100,8 @@ class StoredDocs:
     def load(self, path):
         with open(path, "rb") as reader:
             self._stored_docs.update(pickle.loads(reader.read()))
+        for key, value in self._stored_docs.items():
+            logger.debug("%s = %s", key, value)
         return self._stored_docs
 
 
@@ -200,6 +204,7 @@ class IndexStorage:
             logger.info("Using VectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
             stored_docs.dump(pkl_path)
+        logger.info(f"Stored docs size: {stored_docs.doc_size()}")
         return index, stored_docs
 
 

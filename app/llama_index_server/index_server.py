@@ -1,6 +1,6 @@
+import json
 import time
 from typing import Any, Dict
-from multiprocessing.managers import BaseManager
 from llama_index import (
     Document,
     Prompt,
@@ -55,10 +55,13 @@ def query_index(query_text) -> Dict[str, Any]:
         text = local_query_response.source_nodes[0].text
         # TODO encapsulate the following text extractions to functions
         if 'answer": ' in text:
-            matched_question = text.split('question": ')[1].split(",\n")[0].strip('"')
+            logger.debug(f"Founded text: {text}")
+            matched_meta = json.loads(text)
+            matched_question = matched_meta["question"]
             matched_doc_id = data_util.get_doc_id(matched_question)
             with index_storage.rw_stored_docs() as stored_docs:
                 finded_doc = stored_docs.find_doc(matched_doc_id)
+                logger.info(f"Finded doc: {finded_doc}")
                 if finded_doc:
                     finded_doc["query_tss"].append(time.time())
                     from_knowledge_base =  finded_doc["from_knowledge_base"]
@@ -134,26 +137,8 @@ def get_document(doc_id):
                 "doc_text": result["doc_text"],
                 "from_knowledge_base": result["from_knowledge_base"],
                 "insert_time_display": time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(result["insert_timestamp"])
+                    "%Y-%m-%d %H:%M:%S", time.localtime(result["insert_ts"])
                 ),
                 "query_times": len(result["query_tss"]),
             }
     return None
-
-
-def main():
-    # setup server
-    manager = BaseManager(address=("localhost", 5602), authkey=b"password")
-    manager.register("query_index", query_index)
-    manager.register("insert_text_into_index", insert_text_into_index)
-    manager.register("insert_file_into_index", insert_file_into_index)
-    manager.register("get_document", get_document)
-    manager.register("delete_doc", delete_doc)
-    server = manager.get_server()
-
-    logger.info("server started...")
-    server.serve_forever()
-
-
-if __name__ == "__main__":
-    main()

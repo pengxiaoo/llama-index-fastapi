@@ -10,7 +10,7 @@ class QuestionAnsweringRequest(BaseModel):
     class ConfigDict:
         json_schema_extra = {
             "example_relevant_and_in_knowledge_base": {
-                "question": "How to play golf in bad weather condition?"
+                "question": "How do I achieve consistent ball contact?"
             },
             "example_relevant_but_not_in_knowledge_base": {
                 "question": "How much money it will cost if I buy a full set of golf clubs?"
