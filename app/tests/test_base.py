@@ -35,7 +35,7 @@ class BaseTest(unittest.TestCase):
         if from_knowledge_base is not None:
             self.assertEqual(response.data["from_knowledge_base"], from_knowledge_base)
 
-    def _test_ask_questions_not_relevant(self):
+    def test_ask_questions_not_relevant(self):
         data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[
             "example_not_relevant"
         ]
@@ -58,7 +58,7 @@ class BaseTest(unittest.TestCase):
         self.check_document(doc_id=response.data.matched_question, from_knowledge_base=True)
         self.doc_id = response.data.matched_question
 
-    def _test_ask_questions_relevant_but_not_in_knowledge_base(self):
+    def test_ask_questions_relevant_but_not_in_knowledge_base(self):
         data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[
             "example_relevant_but_not_in_knowledge_base"
         ]
