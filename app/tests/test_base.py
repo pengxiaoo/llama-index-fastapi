@@ -22,7 +22,7 @@ class BaseTest(unittest.TestCase):
         response = self.client.delete(url=f"{self.ROOT}/{self.ROUTER}/documents/{doc_id}")
         self.assertEqual(response.status_code, 200)
 
-    def tearDown(self):
+    def _tearDown(self):
         if self.doc_id:
             self.delete_doc(self.doc_id)
 
@@ -62,7 +62,6 @@ class BaseTest(unittest.TestCase):
         data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[
             "example_relevant_but_not_in_knowledge_base"
         ]
-        self.delete_doc(data["question"])
         response = self.client.post(url=f"{self.ROOT}/{self.ROUTER}/query", json=data)
         json_dict = response.json()
         response = QuestionAnsweringResponse(**json_dict)

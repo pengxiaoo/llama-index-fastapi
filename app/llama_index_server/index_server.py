@@ -96,15 +96,16 @@ def query_index(query_text) -> Dict[str, Any]:
         response = llm_query_engine.query(query_text)
     answer_text = str(response)
     # save the question-answer pair to index
-    question_answer_pair = f'"source": {Source.USER_ASKED}, "category": "", "question": {query_text}, "answer": {answer_text}'
-    doc_id = data_util.get_doc_id(query_text)
-    insert_text_into_index(question_answer_pair, doc_id)
-    return {
+    result = {
         "category": None,
         "question": query_text,
         "source": index_storage.current_model,
         "answer": answer_text,
     }
+    question_answer_pair = json.dumps(result)
+    doc_id = data_util.get_doc_id(query_text)
+    insert_text_into_index(question_answer_pair, doc_id)
+    return result
 
 
 def insert_text_into_index(text, doc_id):
