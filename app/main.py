@@ -2,7 +2,6 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from botocore.exceptions import ClientError
 from app.utils.openapi import patch_openapi
 from app.data.messages.status_code import StatusCode
 from app.data.messages.response import CustomHTTPException
@@ -41,7 +40,7 @@ async def init_timing_middleware(request: Request, call_next):
     return response
 
 
-# Remove 422 error in the docs
+# Remove 422 error in the api docs
 patch_openapi(app)
 
 prefix = "/api/v1"
@@ -73,20 +72,6 @@ async def custom_exception_handler(request, exc):
 async def validation_exception_handler(request, exc):
     msg = exc.errors()[0]["msg"]
     error_msg = handle_error_msg(request, msg)
-    return JSONResponse(
-        status_code=400,
-        content={
-            "status_code": StatusCode.ERROR_INPUT_FORMAT,
-            "msg": error_msg,
-        },
-    )
-
-
-@app.exception_handler(ClientError)
-async def client_error_handler(request, exc):
-    error_code = exc.response["Error"]["Code"]
-    error_msg = exc.response["Error"]["Message"]
-    error_msg = handle_error_msg(request, error_msg, error_code)
     return JSONResponse(
         status_code=400,
         content={

@@ -18,15 +18,23 @@ class DocumentMetaDao(MongoDao):
         super().__init__(mongo_uri, db_name, collection_name, size_limit)
 
     def prune(self):
+        """
+        remove all documents that satisfy the following conditions:
+            1. not from knowledge base, and
+            2. inserted more than 7 days ago, and
+            3. not queried in the last 7 days
+        """
         logger.info(f"current doc size: {self.doc_size()}, pruning...")
-        current_time = get_current_milliseconds()
-        # todo optimize the pruning algorithm.
-        # todo add unit test for pruning
+        seven_days_ago = get_current_milliseconds() - 7 * MILLISECONDS_PER_DAY
         query = {
             "from_knowledge_base": False,
-            "insert_timestamp": {"$lt": current_time - 7 * MILLISECONDS_PER_DAY},
-            "query_timestamps": {"$size": 0}
-        },
+            "insert_timestamp": {"$lt": seven_days_ago},
+            "query_timestamps": {
+                "$not": {
+                    "$elemMatch": {"$gte": seven_days_ago}
+                }
+            }
+        }
         projection = {
             "_id": 0,
             "doc_id": 1,

@@ -12,7 +12,7 @@ from llama_index import (
     download_loader,
     VectorStoreIndex,
 )
-from app.data.models.qa import Source
+from app.data.models.qa import Source, extract_question
 from app.data.models.mongodb import LlamaIndexDocumentMeta
 from app.utils.log_util import logger
 from app.utils import data_util, jsonl_util
@@ -56,16 +56,17 @@ class IndexStorage:
             yield self._mongo
 
     def delete_doc(self, doc_id):
+        """remove from both index and mongo"""
         with self._rwlock:
-            self._index.delete_ref_doc(doc_id)
-            deleted_count = self._mongo.delete_one("doc_id", doc_id)
-            if deleted_count > 0:
-                self._index.docstore.delete_ref_doc(doc_id)
+            self._index.delete_ref_doc(doc_id, delete_from_docstore=True)
+            self._index.storage_context.persist(persist_dir=index_path)
+            self._mongo.delete_one("doc_id", doc_id)
 
     def add_doc(self, doc, doc_id=None):
-        if doc_id is not None:
-            doc.doc_id = doc_id
+        """add to both index and mongo"""
         with self._rwlock:
+            if doc_id is not None:
+                doc.doc_id = doc_id
             self._index.insert(doc)
             self._index.storage_context.persist(persist_dir=index_path)
             doc_meta = LlamaIndexDocumentMeta(
@@ -76,9 +77,10 @@ class IndexStorage:
                 query_timestamps=[],
             )
             pruned_doc_ids = self._mongo.upsert_one("doc_id", doc.doc_id, doc_meta)
-            for pruned_doc_id in pruned_doc_ids:
-                self._index.delete_ref_doc(pruned_doc_id)
-                self._index.docstore.delete_ref_doc(pruned_doc_id)
+            if len(pruned_doc_ids) > 0:
+                for pruned_doc_id in pruned_doc_ids:
+                    self._index.delete_ref_doc(pruned_doc_id, delete_from_docstore=True)
+                self._index.storage_context.persist(persist_dir=index_path)
 
     def initialize_index(self) -> Tuple[BaseIndex, DocumentMetaDao]:
         llm = OpenAI(temperature=0.1, model=self._current_model)
@@ -107,7 +109,7 @@ class IndexStorage:
             logger.info("Using VectorStoreIndex")
             index.storage_context.persist(persist_dir=index_path)
             for doc in documents:
-                question = doc.text.split('question": ')[1].split(",\n")[0].strip('"')
+                question = extract_question(doc.text)
                 doc_id = data_util.get_doc_id(question)
                 doc_meta = LlamaIndexDocumentMeta(
                     doc_id=doc_id,
@@ -116,6 +118,7 @@ class IndexStorage:
                     insert_timestamp=data_util.get_current_milliseconds(),
                     query_timestamps=[],
                 )
+                # todo use batch upsert
                 mongo.upsert_one("doc_id", doc_id, doc_meta)
         logger.info(f"Stored docs size: {mongo.doc_size()}")
         return index, mongo

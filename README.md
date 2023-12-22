@@ -1,7 +1,9 @@
-## A low cost solution of a question answering bot based on local database, on top of llama index and fastapi
+## A Local Knowledge Base Augmented LLM able to serve millions of users, on top of llama index, fastapi and MongoDB
+
+<img src="./imgs/system_architecture.png" alt="pic" width="500"/>
 
 - if user asks a question, the bot will try to match the question and find the answer from local database first
-- local database is a csv file of question/answer pairs, which is embedded(vectorized) by llama index when first run
+- local knowledge base is a csv file of question/answer pairs, which is embedded(vectorized) by llama index when first run
 - if no good matches found, the bot then call openAI's chatgpt api to get the answer, and insert the question/answer
   pair into the index. so next time the bot will be able to answer a similar question from local database
 - if the question is not relevant to the topic(in our case the topic is Golf), the bot will call openAI's chatgpt api to
@@ -17,7 +19,7 @@
 
 ## More details
 
-- the bot uses fastapi as the web framework, and llama index as the search engine
+- the bot uses fastapi as the web framework, llama index as the search engine, MongoDB as the metadata storage 
 - during the first run, csv file is transformed into jsonl file and then embedded by llama index as index
 - the bot uses https://api.openai.com/v1/embeddings for embedding. it is very cheap and with high performance
 - the bot uses https://api.openai.com/v1/chat/completions to ask chatgpt for answers. by default gpt-3.5-turbo is used
@@ -27,9 +29,9 @@
 
 ## Next steps
 
+- currently the bot only supports question answering. plan to support chat as well.
 - use openAI's Assistant API as the search engine(I've already tried, but it is not as good as llama index at the
   moment)
-- try and compare different embedding methods and llm models.
 - more test cases
 
 ## Development
@@ -52,9 +54,9 @@ PYTHONPATH=. python app/launch.py
 - [Api doc](http://127.0.0.1:8081/docs)
 
 ```bash
-PYTHONPATH=. python app/utils/docs/extract_openapi.py app.main:app --out openapi.yaml
-python app/utils/docs/swagger_html.py < openapi.yaml > swagger.html
-python app/utils/docs/redoc_html.py < openapi.yaml > redoc.html
+PYTHONPATH=. python app/utils/api-docs/extract_openapi.py app.main:app --out openapi.yaml
+python app/utils/api-docs/swagger_html.py < openapi.yaml > swagger.html
+python app/utils/api-docs/redoc_html.py < openapi.yaml > redoc.html
 ```
 
 - Test cases(for local tests)

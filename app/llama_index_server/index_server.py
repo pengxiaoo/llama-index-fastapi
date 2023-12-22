@@ -1,5 +1,4 @@
 import json
-from typing import Any, Dict
 from llama_index import (
     Document,
     Prompt,
@@ -7,7 +6,8 @@ from llama_index import (
 )
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
-from app.data.models.qa import Source, get_default_answer_id
+from app.data.models import qa
+from app.data.models.qa import Source, Answer, get_default_answer_id
 from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
@@ -16,8 +16,8 @@ from app.utils.log_util import logger
 from app.utils import data_util
 from app.llama_index_server.index_storage import index_storage
 
-similarity_cutoff = 0.85
-prompt_template_string = (
+SIMILARITY_CUTOFF = 0.85
+PROMPT_TEMPLATE_STR = (
     "We have provided context information below. \n"
     "---------------------\n"
     "{context_str}"
@@ -30,7 +30,7 @@ prompt_template_string = (
 )
 
 
-def query_index(query_text) -> Dict[str, Any]:
+def query_index(query_text) -> Answer:
     data_util.assert_not_none(query_text, "query cannot be none")
     logger.info(f"Query test: {query_text}")
     # first search locally
@@ -39,67 +39,63 @@ def query_index(query_text) -> Dict[str, Any]:
             response_synthesizer=get_response_synthesizer(
                 response_mode=ResponseMode.NO_TEXT
             ),
-            node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=similarity_cutoff)],
+            node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=SIMILARITY_CUTOFF)],
         )
         local_query_response = local_query_engine.query(query_text)
     if len(local_query_response.source_nodes) > 0:
-        text = local_query_response.source_nodes[0].text
-        # todo encapsulate the following text extractions to functions
-        if 'answer": ' in text:
-            logger.debug(f"Found text: {text}")
-            matched_meta = json.loads(text)
+        doc_text = local_query_response.source_nodes[0].text
+        if qa.has_answer(doc_text):
+            logger.debug(f"Found matched answer from index: {doc_text}")
+            matched_meta = json.loads(doc_text)
             matched_question = matched_meta["question"]
             matched_doc_id = data_util.get_doc_id(matched_question)
             with index_storage.rw_mongo() as mongo:
                 doc_meta = mongo.find_one("doc_id", matched_doc_id)
                 doc_meta = LlamaIndexDocumentMeta(**doc_meta) if doc_meta else None
-                logger.debug(f"Found doc: {doc_meta}")
+                current_timestamp = data_util.get_current_milliseconds()
                 if doc_meta:
-                    doc_meta.query_timestamps.append(data_util.get_current_milliseconds())
+                    logger.debug(f"Found doc meta from mongodb: {doc_meta}")
+                    doc_meta.query_timestamps.append(current_timestamp)
                     mongo.upsert_one("doc_id", matched_doc_id, doc_meta)
                     from_knowledge_base = doc_meta.from_knowledge_base
                 else:
-                    # means the document has been removed from stored_docs
-                    logger.warning(f"'{matched_doc_id}' is not found in stored_docs")
+                    # means the document meta has been removed from mongodb. for example by pruning
+                    logger.warning(f"'{matched_doc_id}' is not found in mongodb")
                     doc_meta = LlamaIndexDocumentMeta(
                         doc_id=matched_doc_id,
-                        doc_text=text,
+                        doc_text=doc_text,
                         from_knowledge_base=False,
-                        insert_timestamp=data_util.get_current_milliseconds(),
-                        query_timestamps=[],
+                        insert_timestamp=current_timestamp,
+                        query_timestamps=[current_timestamp],
                     )
                     mongo.upsert_one("doc_id", matched_doc_id, doc_meta)
                     from_knowledge_base = False
-            answer_text = text.split('answer": ')[1].strip('"\n}')
-            if 'category": ' in text:
-                category = text.split('category": ')[1].split(",")[0].strip('"\n}')
-                category = None if data_util.is_empty(category) else category
-            else:
-                category = None
-            return {
-                "category": category,
-                "question": query_text,
-                "matched_question": matched_question,
-                "source": Source.KNOWLEDGE_BASE if from_knowledge_base else Source.USER_ASKED,
-                "answer": answer_text,
-            }
+            answer_text = qa.extract_answer(doc_text)
+            category = qa.extract_category(doc_text)
+            return Answer(
+                category=category,
+                question=query_text,
+                matched_question=matched_question,
+                source=Source.KNOWLEDGE_BASE if from_knowledge_base else Source.USER_ASKED,
+                answer=answer_text,
+            )
     # if not found, turn to LLM
-    qa_template = Prompt(prompt_template_string)
+    qa_template = Prompt(PROMPT_TEMPLATE_STR)
     with index_storage.r_index() as index:
         llm_query_engine = index.as_query_engine(text_qa_template=qa_template)
         response = llm_query_engine.query(query_text)
     answer_text = str(response)
     # save the question-answer pair to index
-    result = {
-        "category": None,
-        "question": query_text,
-        "source": index_storage.current_model,
-        "answer": answer_text,
-    }
-    question_answer_pair = json.dumps(result)
+    answer = Answer(
+        category=None,
+        question=query_text,
+        source=index_storage.current_model,
+        answer=answer_text,
+    )
+    doc_text = answer.model_dump_json()
     doc_id = data_util.get_doc_id(query_text)
-    insert_text_into_index(question_answer_pair, doc_id)
-    return result
+    insert_text_into_index(doc_text, doc_id)
+    return answer
 
 
 def insert_text_into_index(text, doc_id):
@@ -113,7 +109,6 @@ def insert_file_into_index(doc_file_path, doc_id=None):
 
 
 def insert_into_index(document, doc_id=None):
-    """Insert new document into global index."""
     index_storage.add_doc(document, doc_id)
 
 
@@ -125,20 +120,19 @@ def delete_doc(doc_id):
 
 def get_document(doc_id):
     with index_storage.r_mongo() as mongo:
-        doc = mongo.find_one("doc_id", doc_id)
-        if doc:
+        doc_meta = mongo.find_one("doc_id", doc_id)
+        if doc_meta:
             readable = LlamaIndexDocumentMetaReadable(
-                doc_id=doc["doc_id"],
-                doc_text=doc["doc_text"],
-                from_knowledge_base=doc["from_knowledge_base"],
-                insert_timestamp=doc["insert_timestamp"],
-                query_timestamps=doc["query_timestamps"],
+                doc_id=doc_meta["doc_id"],
+                doc_text=doc_meta["doc_text"],
+                from_knowledge_base=doc_meta["from_knowledge_base"],
+                insert_timestamp=doc_meta["insert_timestamp"],
+                query_timestamps=doc_meta["query_timestamps"],
             )
             return readable
     return None
 
 
 def cleanup_for_test():
-    """cleanup user queries for test"""
     with index_storage.rw_mongo() as mongo:
         return mongo.cleanup_for_test()
