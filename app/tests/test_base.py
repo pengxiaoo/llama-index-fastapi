@@ -17,6 +17,8 @@ class BaseTest(unittest.TestCase):
 
     def setUp(self):
         self.doc_id = None
+        response = self.client.post(url=f"{self.ROOT}/{self.ROUTER}/cleanup")
+        self.assertEqual(response.status_code, 200)
 
     def delete_doc(self, doc_id):
         response = self.client.delete(url=f"{self.ROOT}/{self.ROUTER}/documents/{doc_id}")
@@ -33,7 +35,7 @@ class BaseTest(unittest.TestCase):
         response = DocumentResponse(**response.json())
         self.assertIsNotNone(response.data)
         if from_knowledge_base is not None:
-            self.assertEqual(response.data["from_knowledge_base"], from_knowledge_base)
+            self.assertEqual(response.data.from_knowledge_base, from_knowledge_base)
 
     def test_ask_questions_not_relevant(self):
         data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[

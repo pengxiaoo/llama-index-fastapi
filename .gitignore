@@ -161,8 +161,7 @@ cython_debug/
 app/llama_index_server/llama_index_cache/*
 app/llama_index_server/pkl/*.pkl
 app/llama_index_server/saved_index/*
-
-app/documents/*.jsonl
+app/llama_index_server/documents/*.jsonl
 .DS_Store
 .idea/
 */.DS_Store

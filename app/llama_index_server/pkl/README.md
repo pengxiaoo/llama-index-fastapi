@@ -1,1 +1,0 @@
-this folder persists useful data from user conversations

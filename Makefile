@@ -5,7 +5,8 @@ start:
 
 .PHONY: clean
 clean:
-	rm ./app/llama_index_server/saved_index/* | rm ./app/llama_index_server/pkl/*.pkl
+	# cleanup all saved index files
+	find ./app/llama_index_server/saved_index -type f -exec rm {} +
 
 .PHONY: test
 test:

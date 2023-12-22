@@ -18,16 +18,15 @@
 ## More details
 
 - the bot uses fastapi as the web framework, and llama index as the search engine
-- during the first run, csv file is transformed into jsonl file and then embedded by llama index as index(guess why I do
-  this?)
+- during the first run, csv file is transformed into jsonl file and then embedded by llama index as index
 - the bot uses https://api.openai.com/v1/embeddings for embedding. it is very cheap and with high performance
 - the bot uses https://api.openai.com/v1/chat/completions to ask chatgpt for answers. by default gpt-3.5-turbo is used
   as the model
 - concurrency is naturally supported
+- metadata of the index is stored in MongoDB
 
 ## Next steps
 
-- advanced index management, such as index update, index pruning or remove, etc
 - use openAI's Assistant API as the search engine(I've already tried, but it is not as good as llama index at the
   moment)
 - try and compare different embedding methods and llm models.
@@ -56,16 +55,6 @@ PYTHONPATH=. python app/launch.py
 - Test cases(for local tests)
     - write test cases in /app/tests/test_*.py
     - need to pass local test cases before commit
-
-```shell
-pytest -ss
-```
-
-- Clear saved_index and pickle files
-
-```shell
-rm ./app/llama_index_server/saved_index/* | rm ./app/llama_index_server/pkl/*.pkl
-```
 
 ## Reference
 

@@ -1,7 +1,8 @@
 from pydantic import Field, BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional
 from app.data.models.qa import Answer
 from app.data.messages.response import BaseResponseModel
+from app.data.models.mongodb import LlamaIndexDocumentMetaReadable
 
 
 class QuestionAnsweringRequest(BaseModel):
@@ -33,7 +34,7 @@ class DocumentRequest(BaseModel):
 
 
 class DocumentResponse(BaseResponseModel):
-    data: Optional[Dict[str, Any]] = Field(None, description="document data")
+    data: Optional[LlamaIndexDocumentMetaReadable] = Field(None, description="document data")
 
 
 class DeleteDocumentResponse(BaseResponseModel):

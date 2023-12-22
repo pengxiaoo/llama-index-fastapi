@@ -1,6 +1,18 @@
 from typing import Any, List
+import time
 from datetime import datetime
 from botocore.exceptions import ClientError
+
+TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
+MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
+
+
+def get_current_milliseconds():
+    return int(time.time() * 1000)
+
+
+def milliseconds_to_human_readable(milliseconds):
+    return time.strftime(TIME_FORMAT, time.localtime(milliseconds / 1000))
 
 
 def custom_client_error(message, operation_name):
@@ -29,7 +41,7 @@ def now():
 
 
 def get_doc_id(text: str):
-    # todo: use a better way to generate doc_id
+    # todo use a better way to generate doc_id
     return text
 
 
