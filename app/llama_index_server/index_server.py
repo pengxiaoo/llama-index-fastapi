@@ -120,7 +120,7 @@ def insert_into_index(document, doc_id=None):
 def delete_doc(doc_id):
     data_util.assert_not_none(doc_id, "doc_id cannot be none")
     logger.info(f"Delete document with doc id: {doc_id}")
-    index_storage.delete_one("doc_id", doc_id)
+    index_storage.delete_doc("doc_id", doc_id)
 
 
 def get_document(doc_id):
