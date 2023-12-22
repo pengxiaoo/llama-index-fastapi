@@ -6,3 +6,8 @@ start:
 .PHONY: clean
 clean:
 	rm ./app/llama_index_server/saved_index/* | rm ./app/llama_index_server/pkl/*.pkl
+
+.PHONY: test
+test:
+	make clean
+	pytest app/tests

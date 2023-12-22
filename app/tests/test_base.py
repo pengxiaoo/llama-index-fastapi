@@ -1,7 +1,5 @@
 import unittest
-import time
 from fastapi.testclient import TestClient
-from app.launch import index_server_main
 from app.main import app
 from app.data.messages.qa import (
     QuestionAnsweringRequest,
@@ -16,14 +14,17 @@ class BaseTest(unittest.TestCase):
     client = TestClient(app=app)
     ROOT = "/api/v1"
     ROUTER = "qa"
-    index_process = None
 
     def setUp(self):
-        self.index_process = index_server_main()
-        time.sleep(10)
+        self.doc_id = None
 
-    def tearDown(self) -> None:
-        self.index_process.terminate()
+    def delete_doc(self, doc_id):
+        response = self.client.delete(url=f"{self.ROOT}/{self.ROUTER}/documents/{doc_id}")
+        self.assertEqual(response.status_code, 200)
+
+    def _tearDown(self):
+        if self.doc_id:
+            self.delete_doc(self.doc_id)
 
     def check_document(self, doc_id, from_knowledge_base=None):
         data = DocumentRequest.ConfigDict.json_schema_extra
@@ -42,6 +43,7 @@ class BaseTest(unittest.TestCase):
         response = QuestionAnsweringResponse(**response.json())
         self.assertEqual(response.data.answer, get_default_answer())
         self.check_document(doc_id=data["question"], from_knowledge_base=False)
+        self.doc_id = data["question"]
 
     def test_ask_questions_relevant_and_in_knowledge_base(self):
         data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[
@@ -54,6 +56,7 @@ class BaseTest(unittest.TestCase):
         self.assertEqual(response.data.source, Source.KNOWLEDGE_BASE)
         self.assertIsNotNone(response.data.matched_question)
         self.check_document(doc_id=response.data.matched_question, from_knowledge_base=True)
+        self.doc_id = response.data.matched_question
 
     def test_ask_questions_relevant_but_not_in_knowledge_base(self):
         data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[

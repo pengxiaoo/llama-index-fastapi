@@ -4,12 +4,13 @@ import sys
 
 LOG_LEVEL = os.environ.get("QA_SERVICE_LOG_LEVEL", "DEBUG")
 
-logging.basicConfig(
-    stream=sys.stdout,
-    level=LOG_LEVEL,
-    format="[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s",
+default_formatter = logging.Formatter(
+    "[%(asctime)s] [%(levelname)s] [%(filename)s:%(lineno)d:%(funcName)s] %(message)s",
 )
+stream_handler = logging.StreamHandler(stream=sys.stderr)
+stream_handler.setLevel(LOG_LEVEL)
+stream_handler.setFormatter(default_formatter)
 logger = logging.getLogger(__name__)
-logger.propagate = True
-handler = logging.StreamHandler(stream=sys.stdout)
-logger.addHandler(handler)
+logger.addHandler(stream_handler)
+logger.setLevel(LOG_LEVEL)
+logger.propagate = False
