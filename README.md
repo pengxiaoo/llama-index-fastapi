@@ -51,6 +51,11 @@ PYTHONPATH=. python app/launch.py
 
 - [Api doc](http://127.0.0.1:8081/docs)
 
+```bash
+PYTHONPATH=. python app/utils/docs/extract_openapi.py app.main:app --out openapi.yaml
+python app/utils/docs/swagger_html.py < openapi.yaml > swagger.html
+python app/utils/docs/redoc_html.py < openapi.yaml > redoc.html
+```
 
 - Test cases(for local tests)
     - write test cases in /app/tests/test_*.py

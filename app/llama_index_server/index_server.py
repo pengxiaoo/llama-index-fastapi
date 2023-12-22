@@ -85,7 +85,7 @@ def query_index(query_text) -> Dict[str, Any]:
             }
     # if not found, turn to LLM
     qa_template = Prompt(prompt_template_string)
-    with index_storage.rw_index() as index:
+    with index_storage.r_index() as index:
         llm_query_engine = index.as_query_engine(text_qa_template=qa_template)
         response = llm_query_engine.query(query_text)
     answer_text = str(response)
@@ -139,5 +139,6 @@ def get_document(doc_id):
 
 
 def cleanup_for_test():
+    """cleanup user queries for test"""
     with index_storage.rw_mongo() as mongo:
         return mongo.cleanup_for_test()

@@ -46,11 +46,6 @@ class IndexStorage:
             yield self._index
 
     @contextmanager
-    def rw_index(self):
-        with self._rwlock:
-            yield self._index
-
-    @contextmanager
     def r_mongo(self):
         with self._rlock:
             yield self._mongo

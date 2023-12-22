@@ -7,8 +7,8 @@ from app.data.messages.qa import (
     DocumentRequest,
     DocumentResponse,
 )
+from app.llama_index_server import index_server
 from app.utils.log_util import logger
-from app.utils.service import get_service, LLAMA_INDEX_SERVICE
 
 qa_router = APIRouter(
     prefix="/qa",
@@ -25,8 +25,7 @@ qa_router = APIRouter(
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
     query_text = req.question
-    service = get_service(LLAMA_INDEX_SERVICE)
-    data = service.query_index(query_text)
+    data = index_server.query_index(query_text)
     answer = Answer(**data)
     return QuestionAnsweringResponse(data=answer)
 
@@ -38,30 +37,27 @@ async def answer_question(req: QuestionAnsweringRequest):
 )
 async def get_document(req: DocumentRequest):
     logger.info(f"get document for doc_id {req.doc_id}")
-    service = get_service(LLAMA_INDEX_SERVICE)
-    document = service.get_document(req.doc_id)
+    document = index_server.get_document(req.doc_id)
     return DocumentResponse(data=document)
 
 
 @qa_router.delete(
     "/documents/{doc_id}",
     response_model=DeleteDocumentResponse,
-    description="only for testing",
+    description="delete a document by doc_id. only for testing",
 )
 async def delete_doc(doc_id: str = Path(..., title="The ID of the document to delete")):
     logger.info(f"Delete doc for {doc_id}")
-    service = get_service(LLAMA_INDEX_SERVICE)
-    service.delete_doc(doc_id)
+    index_server.delete_doc(doc_id)
     return DeleteDocumentResponse(msg=f"Successfully deleted {doc_id}")
 
 
 @qa_router.post(
     "/cleanup",
     response_model=DeleteDocumentResponse,
-    description="only for testing",
+    description="cleanup all the user query meta data in mongodb. only for testing",
 )
 async def cleanup_for_test():
     logger.info(f"Cleanup for test")
-    service = get_service(LLAMA_INDEX_SERVICE)
-    service.cleanup_for_test()
+    index_server.cleanup_for_test()
     return DeleteDocumentResponse(msg=f"Successfully cleanup")
