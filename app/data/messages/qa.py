@@ -26,10 +26,12 @@ class QuestionAnsweringResponse(BaseResponseModel):
 
 class DocumentRequest(BaseModel):
     doc_id: str = Field(..., description="document id")
+    fuzzy: bool = Field(False, description="whether to use fuzzy search")
 
     class ConfigDict:
         json_schema_extra = {
             "doc_id": "doc_id_1",
+            "fuzzy": False,
         }
 
 

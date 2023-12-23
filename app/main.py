@@ -6,6 +6,7 @@ from app.utils.openapi import patch_openapi
 from app.data.messages.status_code import StatusCode
 from app.data.messages.response import CustomHTTPException
 from app.routers.qa import qa_router
+from app.routers.admin import admin_router
 from app.utils.log_util import logger
 import uvicorn
 import time
@@ -32,7 +33,7 @@ app.add_middleware(
 
 
 @app.middleware("timing")
-async def init_timing_middleware(request: Request, call_next):
+async def add_response_timing_header(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)
     end_time = time.time()
@@ -42,9 +43,9 @@ async def init_timing_middleware(request: Request, call_next):
 
 # Remove 422 error in the api docs
 patch_openapi(app)
-
 prefix = "/api/v1"
 app.include_router(qa_router, prefix=prefix)
+app.include_router(admin_router, prefix=prefix)
 
 
 def handle_error_msg(request, error_msg, error_code=None):

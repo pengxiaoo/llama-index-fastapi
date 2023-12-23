@@ -1,6 +1,5 @@
-from fastapi import APIRouter, Path
+from fastapi import APIRouter
 from app.data.messages.qa import (
-    DeleteDocumentResponse,
     QuestionAnsweringRequest,
     QuestionAnsweringResponse,
     DocumentRequest,
@@ -31,31 +30,9 @@ async def answer_question(req: QuestionAnsweringRequest):
 @qa_router.post(
     "/document",
     response_model=DocumentResponse,
-    description="check what's inside the document. only for testing",
+    description="check what's inside the document. mainly for testing",
 )
 async def get_document(req: DocumentRequest):
-    logger.info(f"get document for doc_id {req.doc_id}")
-    document = index_server.get_document(req.doc_id)
+    logger.info(f"get document for doc_id {req.doc_id}, fuzzy search: {req.fuzzy}")
+    document = index_server.get_document(req)
     return DocumentResponse(data=document)
-
-
-@qa_router.delete(
-    "/documents/{doc_id}",
-    response_model=DeleteDocumentResponse,
-    description="delete a document by doc_id. only for testing",
-)
-async def delete_doc(doc_id: str = Path(..., title="The ID of the document to delete")):
-    logger.info(f"Delete doc for {doc_id}")
-    index_server.delete_doc(doc_id)
-    return DeleteDocumentResponse(msg=f"Successfully deleted {doc_id}")
-
-
-@qa_router.post(
-    "/cleanup",
-    response_model=DeleteDocumentResponse,
-    description="cleanup all the user query meta data in mongodb. only for testing",
-)
-async def cleanup_for_test():
-    logger.info(f"Cleanup for test")
-    index_server.cleanup_for_test()
-    return DeleteDocumentResponse(msg=f"Successfully cleanup")

@@ -32,7 +32,7 @@ paths:
       tags:
       - question answering
       summary: Get Document
-      description: check what's inside the document. only for testing
+      description: check what's inside the document. mainly for testing
       operationId: get_document_api_v1_qa_document_post
       requestBody:
         content:
@@ -47,13 +47,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DocumentResponse'
-  /api/v1/qa/documents/{doc_id}:
+  /api/v1/admin/documents/{doc_id}:
     delete:
       tags:
-      - question answering
+      - (admin) high priority admin operations, usually for testing and debugging
       summary: Delete Doc
       description: delete a document by doc_id. only for testing
-      operationId: delete_doc_api_v1_qa_documents__doc_id__delete
+      operationId: delete_doc_api_v1_admin_documents__doc_id__delete
       parameters:
       - name: doc_id
         in: path
@@ -68,13 +68,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeleteDocumentResponse'
-  /api/v1/qa/cleanup:
+  /api/v1/admin/cleanup:
     post:
       tags:
-      - question answering
+      - (admin) high priority admin operations, usually for testing and debugging
       summary: Cleanup For Test
       description: cleanup all the user query meta data in mongodb. only for testing
-      operationId: cleanup_for_test_api_v1_qa_cleanup_post
+      operationId: cleanup_for_test_api_v1_admin_cleanup_post
       responses:
         '200':
           description: Successful Response
@@ -135,6 +135,11 @@ components:
           type: string
           title: Doc Id
           description: document id
+        fuzzy:
+          type: boolean
+          title: Fuzzy
+          description: whether to use fuzzy search
+          default: false
       type: object
       required:
       - doc_id
@@ -175,6 +180,12 @@ components:
           type: string
           title: Question
           description: the original question
+        matched_question:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Matched Question
+          description: matched question, if any
         category:
           anyOf:
           - type: string

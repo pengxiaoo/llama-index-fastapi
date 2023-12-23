@@ -1,6 +1,6 @@
 import os
 from contextlib import contextmanager
-from multiprocessing import RLock, Lock
+from multiprocessing import Lock
 from typing import Tuple
 from llama_index.llms import OpenAI
 from llama_index.indices.base import BaseIndex
@@ -30,40 +30,36 @@ class IndexStorage:
         logger.info("initializing index and mongo ...")
         self._index, self._mongo = self.initialize_index()
         logger.info("initializing index and mongo done")
-        self._rlock = RLock()
         self._rwlock = Lock()
 
     @property
     def current_model(self):
         return self._current_model
 
-    @contextmanager
-    def r_index(self):
-        with self._rlock:
-            yield self._index
+    def mongo(self):
+        return self._mongo
+
+    def index(self):
+        return self._index
 
     @contextmanager
-    def r_mongo(self):
-        with self._rlock:
-            yield self._mongo
-
-    @contextmanager
-    def rw_mongo(self):
+    def rw_lock(self):
         with self._rwlock:
-            yield self._mongo
+            yield
 
     def delete_doc(self, doc_id):
         """remove from both index and mongo"""
-        with self._rwlock:
+        with self.rw_lock():
             self._index.delete_ref_doc(doc_id, delete_from_docstore=True)
             self._index.storage_context.persist(persist_dir=index_path)
-            self._mongo.delete_one({"doc_id": doc_id})
+            return self._mongo.delete_one({"doc_id": doc_id})
 
     def add_doc(self, answer: Answer):
         """add to both index and mongo"""
-        with self._rwlock:
+        with self.rw_lock():
             doc = answer.to_llama_index_document()
             self._index.insert(doc)
+            # todo: no need to persist every time. could be batched or periodically
             self._index.storage_context.persist(persist_dir=index_path)
             doc_meta = LlamaIndexDocumentMeta.from_answer(answer)
             pruned_doc_ids = self._mongo.upsert_one({"doc_id": doc.doc_id}, doc_meta)

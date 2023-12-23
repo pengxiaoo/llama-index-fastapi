@@ -7,7 +7,7 @@ from app.data.models.qa import Source
 class CollectionModel(BaseModel):
     """
         Base class for all the collections stored in MongoDB.
-        """
+    """
 
     @staticmethod
     def db_name():
@@ -31,6 +31,7 @@ class LlamaIndexDocumentMeta(CollectionModel):
     """
     doc_id: str = Field(..., description="Global unique id of the document")
     question: str = Field(..., description="the original question")
+    matched_question: Optional[str] = Field(None, description="matched question, if any")
     category: Optional[str] = Field(None, description="Category of the question, if it can be recognized")
     source: Source = Field(..., description="Source of the answer")
     answer: str = Field(..., description="answer to the question")
@@ -46,6 +47,7 @@ class LlamaIndexDocumentMeta(CollectionModel):
         doc_meta = LlamaIndexDocumentMeta(
             doc_id=data_util.get_doc_id(answer.question),
             question=answer.question,
+            matched_question=answer.matched_question,
             source=answer.source.value,
             category=answer.category,
             answer=answer.answer,
