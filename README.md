@@ -21,12 +21,12 @@
 ## More details
 
 - the bot uses fastapi as the web framework, llama index as the search engine, MongoDB as the metadata storage
-- during the first run, csv file is transformed into jsonl file and then embedded by llama index as index
+- during the first run, csv file is ingested and embedded by llama index as vector store, and the metadata is stored in
+  MongoDB
 - the bot uses https://api.openai.com/v1/embeddings for embedding. it is very cheap and with high performance
 - the bot uses https://api.openai.com/v1/chat/completions to ask chatgpt for answers. by default gpt-3.5-turbo is used
   as the model
 - concurrency is naturally supported
-- metadata of the index is stored in MongoDB
 
 ## Next steps
 
