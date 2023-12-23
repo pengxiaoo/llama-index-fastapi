@@ -42,13 +42,13 @@ def query_index(query_text) -> Answer:
         logger.debug(f"Found matched question from index: {matched_question}")
         matched_doc_id = data_util.get_doc_id(matched_question)
         with index_storage.rw_mongo() as mongo:
-            doc_meta = mongo.find_one("doc_id", matched_doc_id)
+            doc_meta = mongo.find_one({"doc_id": matched_doc_id})
             doc_meta = LlamaIndexDocumentMeta(**doc_meta) if doc_meta else None
             current_timestamp = data_util.get_current_milliseconds()
             if doc_meta:
                 logger.debug(f"Found doc meta from mongodb: {doc_meta}")
                 doc_meta.query_timestamps.append(current_timestamp)
-                mongo.upsert_one("doc_id", matched_doc_id, doc_meta)
+                mongo.upsert_one({"doc_id": matched_doc_id}, doc_meta)
                 return Answer(
                     category=doc_meta.category,
                     question=query_text,
@@ -84,7 +84,7 @@ def delete_doc(doc_id):
 
 def get_document(doc_id):
     with index_storage.r_mongo() as mongo:
-        doc_meta = mongo.find_one("doc_id", doc_id)
+        doc_meta = mongo.find_one({"doc_id": doc_id})
         if doc_meta:
             return LlamaIndexDocumentMetaReadable(**doc_meta)
     return None

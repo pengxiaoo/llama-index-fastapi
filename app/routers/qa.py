@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Path
-from app.data.models.qa import Answer
 from app.data.messages.qa import (
     DeleteDocumentResponse,
     QuestionAnsweringRequest,

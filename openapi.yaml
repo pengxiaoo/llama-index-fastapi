@@ -32,7 +32,7 @@ paths:
       tags:
       - question answering
       summary: Get Document
-      description: only for testing, check what's inside the document
+      description: check what's inside the document. only for testing
       operationId: get_document_api_v1_qa_document_post
       requestBody:
         content:
@@ -116,7 +116,6 @@ components:
       - source
       - answer
       title: Answer
-      description: ''
     DeleteDocumentResponse:
       properties:
         status_code:
@@ -172,18 +171,28 @@ components:
           type: string
           title: Doc Id
           description: Global unique id of the document
-        doc_text:
+        question:
           type: string
-          title: Doc Text
-          description: The text of the document
-        from_knowledge_base:
-          type: boolean
-          title: From Knowledge Base
-          description: If the document is from knowledge base
+          title: Question
+          description: the original question
+        category:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category
+          description: Category of the question, if it can be recognized
+        source:
+          allOf:
+          - $ref: '#/components/schemas/Source'
+          description: Source of the answer
+        answer:
+          type: string
+          title: Answer
+          description: answer to the question
         insert_timestamp:
           type: integer
           title: Insert Timestamp
-          description: The timestamp when the document is inserted
+          description: The timestamp when the document is inserted, in milliseconds
         query_timestamps:
           items:
             type: integer
@@ -200,16 +209,17 @@ components:
           title: Last Query Time
           description: The time when the document is last queried
           default: ''
-        query_count:
+        query_count_7_days:
           type: integer
-          title: Query Count
-          description: How many times the document is queried
+          title: Query Count 7 Days
+          description: How many times the document is queried in last 7 days
           default: 0
       type: object
       required:
       - doc_id
-      - doc_text
-      - from_knowledge_base
+      - question
+      - source
+      - answer
       - insert_timestamp
       - insert_time
       title: LlamaIndexDocumentMetaReadable

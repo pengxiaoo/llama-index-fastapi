@@ -25,10 +25,10 @@ class MongoDao:
         else:
             self._size_limit = 0
 
-    def upsert_one(self, primary_key_name, primary_key_value, doc: CollectionModel):
-        logger.info(f"Upsert {primary_key_name} = {primary_key_value}")
+    def upsert_one(self, query, doc: CollectionModel):
+        logger.info(f"Upsert one: query = {query}")
         self._collection.update_one(
-            {primary_key_name: primary_key_value},
+            query,
             {"$set": doc.model_dump()},
             upsert=True,
         )
@@ -47,21 +47,17 @@ class MongoDao:
         logger.info(f"Bulk upsert {len(docs)} docs, result = {result}")
 
     def find(self, query, projection):
-        logger.info(f"Find with query = {query}, projection = {projection}")
+        logger.info(f"Find: query = {query}, projection = {projection}")
         return self._collection.find(query, projection)
 
-    def find_one(self, primary_key_name, primary_key_value):
-        logger.info(f"Find {primary_key_name} = {primary_key_value}")
-        doc = self._collection.find_one(
-            {primary_key_name: primary_key_value},
-        )
+    def find_one(self, query):
+        logger.info(f"Find one: query = {query}")
+        doc = self._collection.find_one(query)
         return doc
 
-    def delete_one(self, primary_key_name, primary_key_value):
-        delete_result = self._collection.delete_one(
-            {primary_key_name: primary_key_value},
-        )
-        logger.info(f"Delete {primary_key_name} = {primary_key_value}, delete_result = {delete_result}")
+    def delete_one(self, query):
+        delete_result = self._collection.delete_one(query)
+        logger.info(f"Delete one: query = {query}, delete_result = {delete_result}")
         return delete_result.deleted_count
 
     def delete_many(self, query):

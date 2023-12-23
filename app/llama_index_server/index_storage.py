@@ -57,7 +57,7 @@ class IndexStorage:
         with self._rwlock:
             self._index.delete_ref_doc(doc_id, delete_from_docstore=True)
             self._index.storage_context.persist(persist_dir=index_path)
-            self._mongo.delete_one("doc_id", doc_id)
+            self._mongo.delete_one({"doc_id": doc_id})
 
     def add_doc(self, answer: Answer):
         """add to both index and mongo"""
@@ -66,7 +66,7 @@ class IndexStorage:
             self._index.insert(doc)
             self._index.storage_context.persist(persist_dir=index_path)
             doc_meta = LlamaIndexDocumentMeta.from_answer(answer)
-            pruned_doc_ids = self._mongo.upsert_one("doc_id", doc.doc_id, doc_meta)
+            pruned_doc_ids = self._mongo.upsert_one({"doc_id": doc.doc_id}, doc_meta)
             if len(pruned_doc_ids) > 0:
                 for pruned_doc_id in pruned_doc_ids:
                     self._index.delete_ref_doc(pruned_doc_id, delete_from_docstore=True)
