@@ -1,18 +1,17 @@
 from app.utils.mongo_dao import MongoDao
 from app.utils.log_util import logger
 from app.utils.data_util import get_current_milliseconds, MILLISECONDS_PER_DAY
+from app.data.models.mongodb import LlamaIndexDocumentMeta
 
 MONGO_URI = "mongodb://localhost:27017/"
-DB_NAME = "ai_bot"
-COLLECTION_NAME = "user_queries"
 DOCUMENT_META_LIMIT = 1000
 
 
 class DocumentMetaDao(MongoDao):
     def __init__(self,
                  mongo_uri=MONGO_URI,
-                 db_name=DB_NAME,
-                 collection_name=COLLECTION_NAME,
+                 db_name=LlamaIndexDocumentMeta.db_name(),
+                 collection_name=LlamaIndexDocumentMeta.collection_name(),
                  size_limit=DOCUMENT_META_LIMIT,
                  ):
         super().__init__(mongo_uri, db_name, collection_name, size_limit)
