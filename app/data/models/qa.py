@@ -1,6 +1,7 @@
 from enum import Enum
 from pydantic import Field, BaseModel
 from typing import Optional
+from llama_index import Document
 from app.utils import data_util
 
 IRRELEVANT_QUESTION = {
@@ -25,26 +26,6 @@ class Source(str, Enum):
     CLAUDE_2 = "claude-2"
 
 
-def has_answer(doc_text: str):
-    return 'answer": ' in doc_text
-
-
-def extract_answer(doc_text: str):
-    return doc_text.split('answer": ')[1].strip('"\n}')
-
-
-def extract_question(doc_text: str):
-    return doc_text.split('question": ')[1].split(",\n")[0].strip('"')
-
-
-def extract_category(doc_text: str):
-    if 'category": ' in doc_text:
-        category = doc_text.split('category": ')[1].split(",")[0].strip('"\n}')
-        return category if data_util.not_empty(category) else None
-    else:
-        return None
-
-
 class Answer(BaseModel):
     category: Optional[str] = Field(None, description="Category of the question, if it can be recognized")
     question: str = Field(..., description="the original question")
@@ -52,13 +33,25 @@ class Answer(BaseModel):
     source: Source = Field(..., description="Source of the answer")
     answer: str = Field(..., description="answer to the question")
 
-    def __init__(self, **data):
-        super().__init__(**data)
-        self.answer = self.normalize_answer_for_irrelevant_question(self.answer)
-
     @staticmethod
     def normalize_answer_for_irrelevant_question(answer: str):
         if answer == IRRELEVANT_QUESTION["default_answer_id"]:
             return IRRELEVANT_QUESTION["default_answer"]
         else:
             return answer
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.answer = self.normalize_answer_for_irrelevant_question(self.answer)
+
+    def to_llama_index_document(self):
+        return Document(
+            doc_id=data_util.get_doc_id(self.question),
+            text=self.question,
+            excluded_llm_metadata_keys=["category", "source", "answer"],
+            metadata={
+                "category": self.category,
+                "source": self.source.value,
+                "answer": self.answer,
+            },
+        )

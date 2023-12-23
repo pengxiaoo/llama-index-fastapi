@@ -1,6 +1,7 @@
 from pydantic import Field, BaseModel
-from typing import List
+from typing import List, Optional
 from app.utils import data_util
+from app.data.models.qa import Source
 
 
 class CollectionModel(BaseModel):
@@ -29,8 +30,10 @@ class LlamaIndexDocumentMeta(CollectionModel):
         doc_id(primary)
     """
     doc_id: str = Field(..., description="Global unique id of the document")
-    doc_text: str = Field(..., description="The text of the document")
-    from_knowledge_base: bool = Field(..., description="If the document is from knowledge base")
+    question: str = Field(..., description="the original question")
+    category: Optional[str] = Field(None, description="Category of the question, if it can be recognized")
+    source: Source = Field(..., description="Source of the answer")
+    answer: str = Field(..., description="answer to the question")
     insert_timestamp: int = Field(..., description="The timestamp when the document is inserted, in milliseconds")
     query_timestamps: List[int] = Field([], description="The timestamps when the document is queried")
 
@@ -38,9 +41,22 @@ class LlamaIndexDocumentMeta(CollectionModel):
     def collection_name():
         return "llama_index_document_meta"
 
+    @staticmethod
+    def from_answer(answer):
+        doc_meta = LlamaIndexDocumentMeta(
+            doc_id=data_util.get_doc_id(answer.question),
+            question=answer.question,
+            source=answer.source.value,
+            category=answer.category,
+            answer=answer.answer,
+            insert_timestamp=data_util.get_current_milliseconds(),
+            query_timestamps=[],
+        )
+        return doc_meta
+
     def __init__(self, **data):
         if "doc_id" not in data:
-            data["doc_id"] = data_util.get_doc_id(data["doc_text"])
+            data["doc_id"] = data_util.get_doc_id(data["question"])
         super().__init__(**data)
 
 
