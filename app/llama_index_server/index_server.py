@@ -10,7 +10,7 @@ from app.utils.log_util import logger
 from app.utils import data_util
 from app.llama_index_server.index_storage import index_storage
 
-SIMILARITY_CUTOFF = 0.8
+SIMILARITY_CUTOFF = 0.84
 PROMPT_TEMPLATE_STR = (
     "We have provided context information below. \n"
     "---------------------\n"

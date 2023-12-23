@@ -28,14 +28,16 @@ class BaseTest(unittest.TestCase):
         if self.doc_id:
             self.delete_doc(self.doc_id)
 
-    def check_document(self, doc_id, from_knowledge_base=None):
+    def check_document(self, doc_id, from_knowledge_base):
         data = DocumentRequest.ConfigDict.json_schema_extra
         data["doc_id"] = doc_id
         response = self.client.post(url=f"{self.ROOT}/{self.ROUTER}/document", json=data)
         response = DocumentResponse(**response.json())
         self.assertIsNotNone(response.data)
-        if from_knowledge_base is not None:
-            self.assertEqual(response.data.from_knowledge_base, from_knowledge_base)
+        if from_knowledge_base:
+            self.assertTrue(response.data.source == Source.KNOWLEDGE_BASE)
+        else:
+            self.assertTrue(response.data.source != Source.KNOWLEDGE_BASE)
 
     def test_ask_questions_not_relevant(self):
         data = QuestionAnsweringRequest.ConfigDict.json_schema_extra[
