@@ -25,15 +25,14 @@ qa_router = APIRouter(
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
     query_text = req.question
-    data = index_server.query_index(query_text)
-    answer = Answer(**data)
+    answer = index_server.query_index(query_text)
     return QuestionAnsweringResponse(data=answer)
 
 
 @qa_router.post(
     "/document",
     response_model=DocumentResponse,
-    description="only for testing, check what's inside the document",
+    description="check what's inside the document. only for testing",
 )
 async def get_document(req: DocumentRequest):
     logger.info(f"get document for doc_id {req.doc_id}")

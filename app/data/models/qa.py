@@ -1,6 +1,7 @@
 from enum import Enum
 from pydantic import Field, BaseModel
 from typing import Optional
+from app.utils import data_util
 
 IRRELEVANT_QUESTION = {
     "default_answer_id": "irrelevant_question",
@@ -24,12 +25,28 @@ class Source(str, Enum):
     CLAUDE_2 = "claude-2"
 
 
-class Answer(BaseModel):
-    """ """
+def has_answer(doc_text: str):
+    return 'answer": ' in doc_text
 
-    category: Optional[str] = Field(
-        None, description="Category of the question, if it can be recognized"
-    )
+
+def extract_answer(doc_text: str):
+    return doc_text.split('answer": ')[1].strip('"\n}')
+
+
+def extract_question(doc_text: str):
+    return doc_text.split('question": ')[1].split(",\n")[0].strip('"')
+
+
+def extract_category(doc_text: str):
+    if 'category": ' in doc_text:
+        category = doc_text.split('category": ')[1].split(",")[0].strip('"\n}')
+        return category if data_util.not_empty(category) else None
+    else:
+        return None
+
+
+class Answer(BaseModel):
+    category: Optional[str] = Field(None, description="Category of the question, if it can be recognized")
     question: str = Field(..., description="the original question")
     matched_question: Optional[str] = Field(None, description="matched question, if any")
     source: Source = Field(..., description="Source of the answer")

@@ -21,24 +21,27 @@ class MongoDao:
         self._collection: Collection = self._db[collection_name]
         if size_limit > 0:
             self._size_limit = size_limit
+        else:
+            self._size_limit = 0
 
     def upsert_one(self, key_name, key_value, value: CollectionModel):
-        logger.info(f"Upsert {key_name}: {key_value}")
+        logger.info(f"Upsert {key_name} = {key_value}")
         self._collection.update_one(
             {key_name: key_value},
             {"$set": value.model_dump()},
             upsert=True,
         )
-        pruned_doc_ids = []
+        pruned_ids = []
         if 0 < self._size_limit < self.doc_size():
-            pruned_doc_ids = self.prune()
-        return pruned_doc_ids
+            pruned_ids = self.prune()
+        return pruned_ids
 
-    def find(self, query, projection=None):
+    def find(self, query, projection):
+        logger.info(f"Find with query = {query}, projection = {projection}")
         return self._collection.find(query, projection)
 
     def find_one(self, key_name, key_value):
-        logger.info(f"Find {key_name}: {key_value}")
+        logger.info(f"Find {key_name} = {key_value}")
         doc = self._collection.find_one(
             {key_name: key_value},
         )
@@ -66,4 +69,4 @@ class MongoDao:
         return []
 
     def cleanup_for_test(self):
-        self.delete_many({})
+        pass

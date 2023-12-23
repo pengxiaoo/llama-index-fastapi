@@ -1,7 +1,6 @@
 from typing import Any, List
 import time
 from datetime import datetime
-from botocore.exceptions import ClientError
 
 TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
@@ -15,24 +14,24 @@ def milliseconds_to_human_readable(milliseconds):
     return time.strftime(TIME_FORMAT, time.localtime(milliseconds / 1000))
 
 
-def custom_client_error(message, operation_name):
-    error_response = {
-        "Error": {
-            "Message": message,
-            "Code": "CustomClientError",
-        }
-    }
-    return ClientError(error_response=error_response, operation_name=operation_name)
+class CustomClientError(ValueError):
+    msg: str
+
+    def __init__(self, msg, *args, **kwargs):
+        self.msg = msg
+        super().__init__(args, kwargs)
 
 
-def assert_not_none(value, msg="Value is None"):
+def assert_not_none(value, msg=None):
     if value is None:
-        raise custom_client_error(msg, "assert_not_none")
+        msg = "value should not be None" if not msg else msg
+        raise CustomClientError(msg)
 
 
-def assert_true(state, msg="Invalid state"):
-    if state is not True:
-        raise custom_client_error(msg, "assert_true")
+def assert_true(value, msg=None):
+    if value is not True:
+        msg = "value should be true" if not msg else msg
+        raise CustomClientError(msg)
 
 
 def now():
@@ -47,6 +46,10 @@ def get_doc_id(text: str):
 
 def is_empty(value: Any):
     return value is None or value == "" or value == [] or value == {}
+
+
+def not_empty(value: Any):
+    return not is_empty(value)
 
 
 def del_if_exists(data: dict, keys: List[str]):
