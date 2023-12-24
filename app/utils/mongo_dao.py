@@ -25,7 +25,7 @@ class MongoDao:
         else:
             self._size_limit = 0
 
-    def upsert_one(self, query, doc: CollectionModel):
+    def upsert_one(self, query, doc: CollectionModel, need_prune=False):
         logger.info(f"Upsert one: query = {query}")
         self._collection.update_one(
             query,
@@ -33,7 +33,7 @@ class MongoDao:
             upsert=True,
         )
         pruned_ids = []
-        if 0 < self._size_limit < self.doc_size():
+        if need_prune and 0 < self._size_limit < self.doc_size():
             pruned_ids = self.prune()
         return pruned_ids
 

@@ -6,6 +6,10 @@ TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000
 
 
+def get_current_seconds():
+    return int(time.time())
+
+
 def get_current_milliseconds():
     return int(time.time() * 1000)
 
