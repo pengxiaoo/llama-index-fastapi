@@ -30,13 +30,14 @@ class BaseTest(unittest.TestCase):
         response = self.client.post(url=f"{self.ROOT}/{self.ROUTER_ADMIN}/cleanup", headers=auth_header)
         self.assertEqual(response.status_code, 200)
 
-    def delete_doc(self, doc_id):
-        response = self.client.delete(url=f"{self.ROOT}/{self.ROUTER_ADMIN}/documents/{doc_id}")
-        self.assertEqual(response.status_code, 200)
-
-    def _tearDown(self):
+    def tearDown(self):
         if self.doc_id:
             self.delete_doc(self.doc_id)
+
+    def delete_doc(self, doc_id):
+        auth_header = self.create_authorization_header(data_consts.EXPECTED_USERNAME, data_consts.EXPECTED_PASSWORD)
+        response = self.client.delete(url=f"{self.ROOT}/{self.ROUTER_ADMIN}/documents/{doc_id}", headers=auth_header)
+        self.assertEqual(response.status_code, 200)
 
     def check_document(self, doc_id, from_knowledge_base):
         data = DocumentRequest.ConfigDict.json_schema_extra
