@@ -6,7 +6,7 @@ from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
 )
-from typing import Optional
+from typing import Union
 from app.data.messages.qa import DocumentRequest
 from app.utils.log_util import logger
 from app.utils import data_util
@@ -26,7 +26,7 @@ PROMPT_TEMPLATE_STR = (
 )
 
 
-def query_index(query_text, local_search_only=False) -> Optional[Answer]:
+def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
     data_util.assert_not_none(query_text, "query cannot be none")
     logger.info(f"Query test: {query_text}")
     # first search locally
@@ -51,17 +51,20 @@ def query_index(query_text, local_search_only=False) -> Optional[Answer]:
             logger.debug(f"Found doc meta from mongodb: {doc_meta}")
             doc_meta.query_timestamps.append(current_timestamp)
             mongo.upsert_one({"doc_id": matched_doc_id}, doc_meta)
-            return Answer(
-                category=doc_meta.category,
-                question=query_text,
-                matched_question=matched_question,
-                source=Source.KNOWLEDGE_BASE if doc_meta.source == Source.KNOWLEDGE_BASE else Source.USER_ASKED,
-                answer=doc_meta.answer,
-            )
+            if only_for_meta:
+                return doc_meta
+            else:
+                return Answer(
+                    category=doc_meta.category,
+                    question=query_text,
+                    matched_question=matched_question,
+                    source=Source.KNOWLEDGE_BASE if doc_meta.source == Source.KNOWLEDGE_BASE else Source.USER_ASKED,
+                    answer=doc_meta.answer,
+                )
         else:
             # means the document meta has been removed from mongodb. for example by pruning
             logger.warning(f"'{matched_doc_id}' is not found in mongodb")
-            if local_search_only:
+            if only_for_meta:
                 return None
     # if not found, turn to LLM
     qa_template = Prompt(PROMPT_TEMPLATE_STR)
@@ -90,9 +93,10 @@ def get_document(req: DocumentRequest):
     if doc_meta:
         return LlamaIndexDocumentMetaReadable(**doc_meta)
     elif req.fuzzy:
-        answer = query_index(req.doc_id, local_search_only=True)
-        if answer:
-            doc_meta = LlamaIndexDocumentMeta.from_answer(answer)
+        doc_meta = query_index(req.doc_id, only_for_meta=True)
+        if doc_meta:
+            doc_meta.matched_question = doc_meta.question
+            doc_meta.question = doc_meta.doc_id = req.doc_id
             return LlamaIndexDocumentMetaReadable(**doc_meta.model_dump())
         return None
 
