@@ -17,8 +17,9 @@ qa_router = APIRouter(
 @qa_router.post(
     "/query",
     response_model=QuestionAnsweringResponse,
-    description="ask questions related to the knowledge base, return the answer if there is a good match, "
-                "otherwise turn to chatgpt for answer",
+    description="ask questions related to golf, return a standard answer if there is a good match in the knowledge "
+                "base, otherwise turn to chatgpt for an answer. if the question is not related to golf at all, "
+                "return a default answer telling the user to ask another question",
 )
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")

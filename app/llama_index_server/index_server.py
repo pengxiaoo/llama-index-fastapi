@@ -18,9 +18,9 @@ PROMPT_TEMPLATE_STR = (
     "---------------------\n"
     "{context_str}"
     "\n---------------------\n"
-    "Given this information, assume you are an experienced golf coach, "
-    "please give short, simple, accurate, precise answer to the golfer beginner's question, "
-    "limited to 80 words maximum. If the question is not relevant to golf, please answer "
+    "Given this information, assume you are an experienced golf coach, if the question has anything to do with golf, "
+    "please give short, simple, accurate, precise answer to the question, "
+    "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )

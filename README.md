@@ -49,7 +49,7 @@ pip install -r requirements.txt
 - Run the application locally
 
 ```shell
-PYTHONPATH=. python app/launch.py
+PYTHONPATH=. python app/main.py
 ```
 
 - [Api doc](http://127.0.0.1:8081/docs)

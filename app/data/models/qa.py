@@ -6,7 +6,7 @@ from app.utils import data_util
 
 IRRELEVANT_QUESTION = {
     "default_answer_id": "irrelevant_question",
-    "default_answer": "This question is not relevant to golf.",
+    "default_answer": "This question is not relevant to golf, please ask a question related to golf.",
 }
 
 
