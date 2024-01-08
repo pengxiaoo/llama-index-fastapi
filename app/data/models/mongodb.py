@@ -75,3 +75,13 @@ class LlamaIndexDocumentMetaReadable(LlamaIndexDocumentMeta):
             self.last_query_time = data_util.milliseconds_to_human_readable(self.query_timestamps[-1])
         self.query_count_7_days = len([t for t in self.query_timestamps if
                                        t > data_util.get_current_milliseconds() - 7 * data_util.MILLISECONDS_PER_DAY])
+
+
+class ChatData(CollectionModel):
+    conversation_id: str = Field(..., description="Unique id of the conversation")
+    timestamp: str = Field(..., description="Time in milliseconds")
+    text: str = Field(..., description="Content of the conversation")
+
+    @staticmethod
+    def collection_name():
+        return "converstations"

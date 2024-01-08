@@ -46,9 +46,13 @@ class MongoDao:
         result = self._collection.bulk_write(operations, ordered=False)
         logger.info(f"Bulk upsert {len(docs)} docs, result = {result}")
 
-    def find(self, query, projection):
-        logger.info(f"Find: query = {query}, projection = {projection}")
-        return self._collection.find(query, projection)
+    def find(self, query, projection=None, limit=0, sort=None, **kwargs):
+        logger.info(
+            f"Find: query = {query}, projection = {projection}, limit = {limit}, sort = {sort}"
+        )
+        return self._collection.find(
+            query, projection=projection, limit=limit, sort=sort, **kwargs
+        )
 
     def find_one(self, query):
         logger.info(f"Find one: query = {query}")
