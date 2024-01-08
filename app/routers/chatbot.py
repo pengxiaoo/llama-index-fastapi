@@ -4,8 +4,9 @@ from fastapi.responses import StreamingResponse
 
 import pymongo
 
-from app.data.messages.chat import ChatRequest, ChatResponse
+from app.data.messages.chat import ChatRequest, ChatResponse, Originator
 from app.data.models.mongodb import ChatData
+from app.data.models.qa import Answer
 from app.llama_index_server import index_server
 from app.utils.log_util import logger
 from app.utils.mongo_dao import MongoDao
@@ -79,16 +80,35 @@ async def chat(request: ChatRequest):
     # Insert the dialog into mongodb
     query = {
         "conversation_id": conversation_id,
+        "originator": {"$ne": 2},
     }
     ts = round(time.time() * 1000)
-    data = ChatData(conversation_id=conversation_id, timestamp=str(ts), text=request.dialog)
+    data = ChatData(
+        conversation_id=conversation_id,
+        timestamp=str(ts),
+        text=request.dialog,
+        originator=Originator.User,
+    )
     mongodb.upsert_one(query, data)
 
     # How to organize the conversations
 
     # Find in index
 
-    # Find from OpenAI
+    # Or find from OpenAI
+
+    # Insert result into mongodb
+    result = ""
+    query = {"conversation_id": conversation_id}
+    ts = round(time.time() * 1000)
+    data = ChatData(
+        conversation_id=conversation_id,
+        timestamp=str(ts),
+        text=result,
+        originator=Originator.Bot,
+    )
+    response = Answer()
+    return ChatResponse(data=response)
 
 
 @chatbot_router.post(
