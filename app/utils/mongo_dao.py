@@ -25,6 +25,10 @@ class MongoDao:
         else:
             self._size_limit = 0
 
+    def insert_one(self, doc: CollectionModel):
+        logger.info(f"Insert data")
+        self._collection.insert_one(doc.model_dump())
+
     def upsert_one(self, query, doc: CollectionModel, need_prune=False):
         logger.info(f"Upsert one: query = {query}")
         self._collection.update_one(

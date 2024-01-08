@@ -71,48 +71,54 @@ mongodb = MongoDao(
 async def chat(request: ChatRequest):
     logger.info("Non streaming chat")
     conversation_id = request.conversation_id
-    conversations = mongodb.find(
-        {"conversation_id": conversation_id},
-        limit=HISTORY_SIZE,
-        sort=[("timestamp", pymongo.DESCENDING)],
-    )
-
-    # Insert the dialog into mongodb
-    query = {
+    find_all_user_query = {
         "conversation_id": conversation_id,
         "originator": {"$ne": 2},
     }
+    conversations = mongodb.find(
+        find_all_user_query,
+        limit=HISTORY_SIZE,
+        sort=[("timestamp", pymongo.DESCENDING)],
+    )
+    conversations = list(conversations)
+
+    logger.info(f"Found conversation size: {len(conversations)}")
+
+    # Insert the dialog into mongodb
     ts = round(time.time() * 1000)
     data = ChatData(
         conversation_id=conversation_id,
         timestamp=str(ts),
         text=request.dialog,
         originator=Originator.User,
+        source=None,
     )
-    mongodb.upsert_one(query, data)
+    mongodb.insert_one(data)
 
     # How to organize the conversations
+    # De-duplicate
+    # How to make a more elaborate query
+    combined_query = " ".join(
+        [request.dialog] + [conversation["text"] for conversation in conversations]
+    )
 
     # Find in index
-
-    # Or find from OpenAI
+    response = index_server.query_index(combined_query)
 
     # Insert result into mongodb
-    result = ""
-    query = {"conversation_id": conversation_id}
     ts = round(time.time() * 1000)
-    data = ChatData(
-        conversation_id=conversation_id,
-        timestamp=str(ts),
-        text=result,
-        originator=Originator.Bot,
-    )
-    response = Answer()
+    if response:
+        chat_data = ChatData(
+            conversation_id=conversation_id,
+            timestamp=str(ts),
+            text=response.answer,
+            originator=Originator.Bot,
+            source=response.source,
+        )
+        mongodb.insert_one(chat_data)
     return ChatResponse(data=response)
 
 
-@chatbot_router.post(
-    "/streaming_dialog"
-)
+@chatbot_router.post("/streaming_dialog")
 async def streaming_chat():
     ...
