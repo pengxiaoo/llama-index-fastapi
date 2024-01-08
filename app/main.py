@@ -7,6 +7,7 @@ from app.data.messages.status_code import StatusCode
 from app.data.messages.response import CustomHTTPException
 from app.routers.qa import qa_router
 from app.routers.admin import admin_router
+from app.routers.chatbot import chatbot_router
 from app.utils.log_util import logger
 import uvicorn
 import time
@@ -46,6 +47,7 @@ patch_openapi(app)
 prefix = "/api/v1"
 app.include_router(qa_router, prefix=prefix)
 app.include_router(admin_router, prefix=prefix)
+app.include_router(chatbot_router, prefix=prefix)
 
 
 def handle_error_msg(request, error_msg, error_code=None):

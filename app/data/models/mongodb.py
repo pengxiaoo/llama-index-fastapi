@@ -1,5 +1,6 @@
 from pydantic import Field, BaseModel
 from typing import List, Optional
+from app.data.messages.chat import Originator
 from app.utils import data_util
 from app.data.models.qa import Source
 
@@ -75,3 +76,15 @@ class LlamaIndexDocumentMetaReadable(LlamaIndexDocumentMeta):
             self.last_query_time = data_util.milliseconds_to_human_readable(self.query_timestamps[-1])
         self.query_count_7_days = len([t for t in self.query_timestamps if
                                        t > data_util.get_current_milliseconds() - 7 * data_util.MILLISECONDS_PER_DAY])
+
+
+class ChatData(CollectionModel):
+    conversation_id: str = Field(..., description="Unique id of the conversation")
+    timestamp: str = Field(..., description="Time in milliseconds")
+    text: str = Field(..., description="Content of the conversation")
+    originator: Originator = Field(..., description="Originator of the dialog")
+    source: Optional[Source] = Field(None, description="Source of the answer")
+
+    @staticmethod
+    def collection_name():
+        return "converstations"

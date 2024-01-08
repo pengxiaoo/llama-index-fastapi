@@ -26,7 +26,7 @@ PROMPT_TEMPLATE_STR = (
 )
 
 
-def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
+def query_index(query_text, only_for_meta=False) -> Union[Answer, None]:
     data_util.assert_not_none(query_text, "query cannot be none")
     logger.info(f"Query test: {query_text}")
     # first search locally
