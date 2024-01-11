@@ -95,15 +95,8 @@ async def chat(request: ChatRequest):
     )
     mongodb.insert_one(data)
 
-    # How to organize the conversations
-    # De-duplicate
-    # How to make a more elaborate query
-    combined_query = " ".join(
-        [request.dialog] + [conversation["text"] for conversation in conversations]
-    )
-
     # Find in index
-    response = index_server.query_index(combined_query)
+    response = index_server.chat(request.dialog, conversation_id, conversations)
 
     # Insert result into mongodb
     ts = round(time.time() * 1000)

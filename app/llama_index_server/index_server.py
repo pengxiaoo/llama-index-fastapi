@@ -1,16 +1,17 @@
 from llama_index import Prompt
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
+from llama_index.llms.base import ChatMessage, MessageRole
 from app.data.models.qa import Source, Answer, get_default_answer_id
 from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
 )
-from typing import Union
+from typing import Union, List, Dict
 from app.data.messages.qa import DocumentRequest
 from app.utils.log_util import logger
 from app.utils import data_util
-from app.llama_index_server.index_storage import index_storage
+from app.llama_index_server.index_storage import index_storage, chat_engine
 
 SIMILARITY_CUTOFF = 0.85
 PROMPT_TEMPLATE_STR = (
@@ -26,7 +27,7 @@ PROMPT_TEMPLATE_STR = (
 )
 
 
-def query_index(query_text, only_for_meta=False) -> Union[Answer, None]:
+def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
     data_util.assert_not_none(query_text, "query cannot be none")
     logger.info(f"Query test: {query_text}")
     # first search locally
@@ -103,3 +104,28 @@ def get_document(req: DocumentRequest):
 
 def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
+
+
+def chat(text: str, conversation_id: str, history: List[Dict]) -> Answer:
+    data_util.assert_not_none(text, "query cannot be none")
+    # first search locally
+    engine, newly_created = chat_engine.get(conversation_id)
+    logger.info(f"Query test: {text}, engine is new = {newly_created} for {conversation_id}")
+    if newly_created:
+        # create history
+        messages = [ChatMessage(role=MessageRole.USER, content=c["text"]) for c in history]
+        logger.info(f"Creating ChatMessage, size: {len(messages)}")
+        response = engine.chat(text, chat_history=messages)
+    else:
+        response = engine.chat(text)
+    answer = Answer(
+        category=None,
+        question=text,
+        source=index_storage.current_model,
+        answer=f"{response}",
+    )
+    return answer
+
+
+def stream_chat(text):
+    ...
