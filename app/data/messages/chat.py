@@ -5,7 +5,6 @@ from llama_index.llms.base import MessageRole
 from app.data.models.chat import ChatReply
 
 
-
 class ChatRequest(BaseModel):
     conversation_id: str = Field(..., description="Unique id of the conversation")
     role: MessageRole = Field(..., description="Role of the dialog")
