@@ -125,14 +125,6 @@ def cleanup_for_test():
 
 
 def history_for_converstaion(conversation_id: str) -> List[Dict]:
-    HISTORY_SIZE = 10
-    collection_name = "conversation"
-    db_name = "ai_bot"
-    mongodb = MongoDao(
-    data_consts.MONGO_URI,
-    db_name,
-    collection_name=collection_name,
-)
     find_all_user_query = {
         "conversation_id": conversation_id,
         "role": {"$ne": MessageRole.ASSISTANT.value},
