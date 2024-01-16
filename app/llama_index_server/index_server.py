@@ -1,17 +1,24 @@
+import pymongo
+import time
+from typing import Dict, List, Union
+
 from llama_index import Prompt
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
 from llama_index.llms.base import ChatMessage, MessageRole
 from app.data.models.qa import Source, Answer, get_default_answer_id
+from app.data.models.mongodb import ChatData
 from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
 )
-from typing import Union, List, Dict
+from app.utils.mongo_dao import MongoDao
 from app.data.messages.qa import DocumentRequest
+from app.data.models.chat import ChatReply
 from app.utils.log_util import logger
 from app.utils import data_util
 from app.llama_index_server.index_storage import index_storage, chat_engine
+from app.utils import data_consts
 
 SIMILARITY_CUTOFF = 0.85
 PROMPT_TEMPLATE_STR = (
@@ -25,6 +32,16 @@ PROMPT_TEMPLATE_STR = (
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )
+
+HISTORY_SIZE = 10
+collection_name = "conversation"
+db_name = "ai_bot"
+mongodb = MongoDao(
+    data_consts.MONGO_URI,
+    db_name,
+    collection_name=collection_name,
+)
+
 
 
 def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
@@ -106,25 +123,62 @@ def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
 
 
-def chat(text: str, conversation_id: str, history: List[Dict]) -> Answer:
+def history_for_converstaion(conversation_id: str) -> List[Dict]:
+    HISTORY_SIZE = 10
+    collection_name = "conversation"
+    db_name = "ai_bot"
+    mongodb = MongoDao(
+    data_consts.MONGO_URI,
+    db_name,
+    collection_name=collection_name,
+)
+    find_all_user_query = {
+        "conversation_id": conversation_id,
+        "originator": {"$ne": MessageRole.ASSISTANT.value},
+    }
+    conversations = mongodb.find(
+        find_all_user_query,
+        limit=HISTORY_SIZE,
+        sort=[("timestamp", pymongo.DESCENDING)],
+    )
+    conversations = list(conversations)
+    logger.info(f"Found conversation size: {len(conversations)}")
+    return conversations
+
+
+def chat(text: str, conversation_id: str) -> ChatReply:
     data_util.assert_not_none(text, "query cannot be none")
-    # first search locally
+    ts = round(time.time() * 1000)
     engine, newly_created = chat_engine.get(conversation_id)
     logger.info(f"Query test: {text}, engine is new = {newly_created} for {conversation_id}")
     if newly_created:
         # create history
+        history = history_for_converstaion(conversation_id)
         messages = [ChatMessage(role=MessageRole.USER, content=c["text"]) for c in history]
         logger.info(f"Creating ChatMessage, size: {len(messages)}")
         response = engine.chat(text, chat_history=messages)
     else:
         response = engine.chat(text)
-    answer = Answer(
-        category=None,
-        question=text,
-        source=index_storage.current_model,
-        answer=f"{response}",
+    reply_ts = round(time.time() * 1000)
+    reply = ChatReply(
+        message=text,
+        reply=f"{response}",
     )
-    return answer
+    reply_data = ChatData(
+        conversation_id=conversation_id,
+        timestamp=str(ts),
+        text=reply.reply,
+        originator=MessageRole.ASSISTANT,
+    )
+    message_data = ChatData(
+        conversation_id=conversation_id,
+        timestamp=str(reply_ts),
+        text=text,
+        originator=MessageRole.USER,
+    )
+    mongodb.insert_one(message_data)
+    mongodb.insert_one(reply_data)
+    return reply
 
 
 def stream_chat(text):

@@ -83,7 +83,6 @@ class ChatData(CollectionModel):
     timestamp: str = Field(..., description="Time in milliseconds")
     text: str = Field(..., description="Content of the conversation")
     originator: MessageRole = Field(..., description="Originator of the dialog")
-    source: Optional[Source] = Field(None, description="Source of the answer")
 
     @staticmethod
     def collection_name():

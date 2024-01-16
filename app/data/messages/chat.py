@@ -2,7 +2,8 @@ from typing import Optional
 from pydantic import Field, BaseModel
 from llama_index.llms.base import MessageRole
 
-from app.data.models.qa import Answer
+from app.data.models.chat import ChatReply
+
 
 
 class ChatRequest(BaseModel):
@@ -13,4 +14,4 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    data: Optional[Answer] = Field(None, description="Chat response")
+    data: Optional[ChatReply] = Field(None, description="Chat reply")

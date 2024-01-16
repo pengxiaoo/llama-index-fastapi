@@ -3,15 +3,11 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from llama_index.llms.base import MessageRole
 
-import pymongo
 
 from app.data.messages.chat import ChatRequest, ChatResponse
 from app.data.models.mongodb import ChatData
-from app.data.models.qa import Answer
 from app.llama_index_server import index_server
 from app.utils.log_util import logger
-from app.utils.mongo_dao import MongoDao
-from app.utils import data_consts
 
 
 chatbot_router = APIRouter(
@@ -54,16 +50,6 @@ Response design
 
 """
 
-HISTORY_SIZE = 10
-
-collection_name = "conversation"
-db_name = "ai_bot"
-mongodb = MongoDao(
-    data_consts.MONGO_URI,
-    db_name,
-    collection_name=collection_name,
-)
-
 
 @chatbot_router.post(
     "/dialog",
@@ -72,44 +58,7 @@ mongodb = MongoDao(
 async def chat(request: ChatRequest):
     logger.info("Non streaming chat")
     conversation_id = request.conversation_id
-    find_all_user_query = {
-        "conversation_id": conversation_id,
-        "originator": {"$ne": MessageRole.ASSISTANT.value},
-    }
-    conversations = mongodb.find(
-        find_all_user_query,
-        limit=HISTORY_SIZE,
-        sort=[("timestamp", pymongo.DESCENDING)],
-    )
-    conversations = list(conversations)
-
-    logger.info(f"Found conversation size: {len(conversations)}")
-
-    # Insert the dialog into mongodb
-    ts = round(time.time() * 1000)
-    data = ChatData(
-        conversation_id=conversation_id,
-        timestamp=str(ts),
-        text=request.dialog,
-        originator=MessageRole.USER,
-        source=None,
-    )
-    mongodb.insert_one(data)
-
-    # Find in index
-    response = index_server.chat(request.dialog, conversation_id, conversations)
-
-    # Insert result into mongodb
-    ts = round(time.time() * 1000)
-    if response:
-        chat_data = ChatData(
-            conversation_id=conversation_id,
-            timestamp=str(ts),
-            text=response.answer,
-            originator=MessageRole.ASSISTANT,
-            source=response.source,
-        )
-        mongodb.insert_one(chat_data)
+    response = index_server.chat(request.dialog, conversation_id)
     return ChatResponse(data=response)
 
 
