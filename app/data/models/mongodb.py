@@ -1,6 +1,6 @@
 from pydantic import Field, BaseModel
 from typing import List, Optional
-from app.data.messages.chat import Originator
+from llama_index.llms.base import MessageRole
 from app.utils import data_util
 from app.data.models.qa import Source
 
@@ -82,7 +82,7 @@ class ChatData(CollectionModel):
     conversation_id: str = Field(..., description="Unique id of the conversation")
     timestamp: str = Field(..., description="Time in milliseconds")
     text: str = Field(..., description="Content of the conversation")
-    originator: Originator = Field(..., description="Originator of the dialog")
+    originator: MessageRole = Field(..., description="Originator of the dialog")
     source: Optional[Source] = Field(None, description="Source of the answer")
 
     @staticmethod

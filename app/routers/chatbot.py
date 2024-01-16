@@ -1,10 +1,11 @@
 import time
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
+from llama_index.llms.base import MessageRole
 
 import pymongo
 
-from app.data.messages.chat import ChatRequest, ChatResponse, Originator
+from app.data.messages.chat import ChatRequest, ChatResponse
 from app.data.models.mongodb import ChatData
 from app.data.models.qa import Answer
 from app.llama_index_server import index_server
@@ -73,7 +74,7 @@ async def chat(request: ChatRequest):
     conversation_id = request.conversation_id
     find_all_user_query = {
         "conversation_id": conversation_id,
-        "originator": {"$ne": 2},
+        "originator": {"$ne": MessageRole.ASSISTANT.value},
     }
     conversations = mongodb.find(
         find_all_user_query,
@@ -90,7 +91,7 @@ async def chat(request: ChatRequest):
         conversation_id=conversation_id,
         timestamp=str(ts),
         text=request.dialog,
-        originator=Originator.User,
+        originator=MessageRole.USER,
         source=None,
     )
     mongodb.insert_one(data)
@@ -105,7 +106,7 @@ async def chat(request: ChatRequest):
             conversation_id=conversation_id,
             timestamp=str(ts),
             text=response.answer,
-            originator=Originator.Bot,
+            originator=MessageRole.ASSISTANT,
             source=response.source,
         )
         mongodb.insert_one(chat_data)
