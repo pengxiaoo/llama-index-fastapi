@@ -140,6 +140,24 @@ def history_for_converstaion(conversation_id: str) -> List[Dict]:
     return conversations
 
 
+def dump_data(conversation_id, text, message_ts, reply, reply_ts):
+    message_data = ChatData(
+        conversation_id=conversation_id,
+        timestamp=str(message_ts),
+        text=text,
+        role=MessageRole.USER,
+    )
+
+    reply_data = ChatData(
+        conversation_id=conversation_id,
+        timestamp=str(reply_ts),
+        text=reply,
+        role=MessageRole.ASSISTANT,
+    )
+    data = [reply_data.model_dump(), message_data.model_dump()]
+    mongodb.bulk_upsert(data, ["timestamp"])
+
+
 def chat(text: str, conversation_id: str) -> ChatReply:
     data_util.assert_not_none(text, "query cannot be none")
     ts = round(time.time() * 1000)
@@ -158,26 +176,14 @@ def chat(text: str, conversation_id: str) -> ChatReply:
         message=text,
         reply=f"{response}",
     )
-    reply_data = ChatData(
-        conversation_id=conversation_id,
-        timestamp=str(ts),
-        text=reply.reply,
-        role=MessageRole.ASSISTANT,
-    )
-    message_data = ChatData(
-        conversation_id=conversation_id,
-        timestamp=str(reply_ts),
-        text=text,
-        role=MessageRole.USER,
-    )
-    data = [reply_data.model_dump(), message_data.model_dump()]
-    mongodb.bulk_upsert(data, ["timestamp"])
+    dump_data(conversation_id, text, ts, reply.reply, reply_ts)
     return reply
 
 
 async def stream_chat(text, conversation_id):
     # We only support using OpenAI's API
     client = OpenAI()  # for OpenAI API calls
+    ts = round(time.time() * 1000)
     history = [{"text": text}] + history_for_converstaion(conversation_id)
     messages = [ChatCompletionUserMessageParam(content=c["text"], role="user") for c in history]
     completion = client.chat.completions.create(
@@ -186,9 +192,14 @@ async def stream_chat(text, conversation_id):
         temperature=0,
         stream=True  # again, we set stream=True
     )
+    chunks = []
     for chunk in completion:
         chunk_message =  chunk.choices[0].delta.content
         if chunk_message is None:
             break
+        chunks.append(chunk_message)
         logger.debug("Chunk message: %s", chunk_message)
         yield chunk_message
+    reply_ts = round(time.time() * 1000)
+
+    dump_data(conversation_id, text, ts, "".join(chunks), reply_ts)
