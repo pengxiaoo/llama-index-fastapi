@@ -3,6 +3,7 @@ import time
 from typing import Dict, List, Union
 
 from openai import OpenAI
+from openai.types.chat.chat_completion_user_message_param import ChatCompletionUserMessageParam
 from llama_index import Prompt
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
@@ -177,11 +178,11 @@ def chat(text: str, conversation_id: str) -> ChatReply:
 async def stream_chat(text, conversation_id):
     # We only support using OpenAI's API
     client = OpenAI()  # for OpenAI API calls
+    history = [{"text": text}] + history_for_converstaion(conversation_id)
+    messages = [ChatCompletionUserMessageParam(content=c["text"], role="user") for c in history]
     completion = client.chat.completions.create(
         model="gpt-3.5-turbo",
-        messages=[
-            {"role": "user", "content": text}
-        ],
+        messages=messages,
         temperature=0,
         stream=True  # again, we set stream=True
     )
