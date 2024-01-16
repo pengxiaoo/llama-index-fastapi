@@ -1,11 +1,7 @@
-import time
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from llama_index.llms.base import MessageRole
-
 
 from app.data.messages.chat import ChatRequest, ChatResponse
-from app.data.models.mongodb import ChatData
 from app.llama_index_server import index_server
 from app.utils.log_util import logger
 
@@ -63,5 +59,10 @@ async def chat(request: ChatRequest):
 
 
 @chatbot_router.post("/streaming_dialog")
-async def streaming_chat():
-    ...
+async def streaming_chat(request: ChatRequest):
+    logger.info("Non streaming chat")
+    conversation_id = request.conversation_id
+    return StreamingResponse(
+        index_server.stream_chat(request.dialog, conversation_id),
+        media_type='text/event-stream'
+    )

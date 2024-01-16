@@ -2,6 +2,7 @@ import pymongo
 import time
 from typing import Dict, List, Union
 
+from openai import OpenAI
 from llama_index import Prompt
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
@@ -134,7 +135,7 @@ def history_for_converstaion(conversation_id: str) -> List[Dict]:
 )
     find_all_user_query = {
         "conversation_id": conversation_id,
-        "originator": {"$ne": MessageRole.ASSISTANT.value},
+        "role": {"$ne": MessageRole.ASSISTANT.value},
     }
     conversations = mongodb.find(
         find_all_user_query,
@@ -168,18 +169,33 @@ def chat(text: str, conversation_id: str) -> ChatReply:
         conversation_id=conversation_id,
         timestamp=str(ts),
         text=reply.reply,
-        originator=MessageRole.ASSISTANT,
+        role=MessageRole.ASSISTANT,
     )
     message_data = ChatData(
         conversation_id=conversation_id,
         timestamp=str(reply_ts),
         text=text,
-        originator=MessageRole.USER,
+        role=MessageRole.USER,
     )
     data = [reply_data.model_dump(), message_data.model_dump()]
     mongodb.bulk_upsert(data, ["timestamp"])
     return reply
 
 
-def stream_chat(text):
-    ...
+async def stream_chat(text, conversation_id):
+    # We only support using OpenAI's API
+    client = OpenAI()  # for OpenAI API calls
+    completion = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "user", "content": text}
+        ],
+        temperature=0,
+        stream=True  # again, we set stream=True
+    )
+    for chunk in completion:
+        chunk_message =  chunk.choices[0].delta.content
+        if chunk_message is None:
+            break
+        logger.debug("Chunk message: %s", chunk_message)
+        yield chunk_message

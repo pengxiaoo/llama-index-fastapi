@@ -8,7 +8,7 @@ from app.data.models.chat import ChatReply
 
 class ChatRequest(BaseModel):
     conversation_id: str = Field(..., description="Unique id of the conversation")
-    orignator: MessageRole = Field(..., description="Source of the dialog")
+    role: MessageRole = Field(..., description="Role of the dialog")
     dialog: str = Field(..., description="Content of the current request")
     sequence_num: int = Field(..., description="The sequence number of current dialog")
 
