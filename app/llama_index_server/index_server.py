@@ -176,8 +176,8 @@ def chat(text: str, conversation_id: str) -> ChatReply:
         text=text,
         originator=MessageRole.USER,
     )
-    mongodb.insert_one(message_data)
-    mongodb.insert_one(reply_data)
+    data = [reply_data.model_dump(), message_data.model_dump()]
+    mongodb.bulk_upsert(data, ["timestamp"])
     return reply
 
 
