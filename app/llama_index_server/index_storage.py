@@ -1,4 +1,6 @@
+from collections import deque
 import os
+from functools import lru_cache
 from contextlib import contextmanager
 from multiprocessing import Lock
 from typing import Tuple
@@ -33,6 +35,11 @@ class IndexStorage:
         logger.info("initializing index and mongo done")
         self._lock = Lock()
         self._last_persist_time = 0
+        self._chat_engine_record = {}
+
+    @property
+    def chat_engine_record(self):
+        return self._chat_engine_record
 
     @property
     def current_model(self):
@@ -96,3 +103,37 @@ class IndexStorage:
 
 
 index_storage = IndexStorage()
+
+
+class ChatEngine:
+    """Class to keep track of all the chat engine"""
+    def __init__(self, limit=10):
+        self._data = {}
+        self._limit = limit
+        self._deque = deque(maxlen=limit)
+
+    def get(self, conversation_id):
+        """Get a chat engine according to conversation_id
+
+        Args:
+            conversation_id: the unique id of the conversation
+
+        Returns:
+            engine
+            bool: whether it is newly created
+        """
+        engine = self._data.get(conversation_id)
+        if engine:
+            return engine, False
+        if len(self._data) > self._limit:
+            front = self._deque.popleft()
+            logger.info(f"Delete engine for {front}")
+            del self._data[front]
+        self._deque.append(conversation_id)
+        logger.info(f"Create a new chat engine for {conversation_id}")
+        engine = index_storage.index().as_chat_engine()
+        self._data[conversation_id] = engine
+        return engine, True
+
+
+chat_engine = ChatEngine()

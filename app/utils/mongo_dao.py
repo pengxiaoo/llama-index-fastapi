@@ -25,6 +25,10 @@ class MongoDao:
         else:
             self._size_limit = 0
 
+    def insert_one(self, doc: CollectionModel):
+        logger.info(f"Insert data")
+        self._collection.insert_one(doc.model_dump())
+
     def upsert_one(self, query, doc: CollectionModel, need_prune=False):
         logger.info(f"Upsert one: query = {query}")
         self._collection.update_one(
@@ -46,9 +50,13 @@ class MongoDao:
         result = self._collection.bulk_write(operations, ordered=False)
         logger.info(f"Bulk upsert {len(docs)} docs, result = {result}")
 
-    def find(self, query, projection):
-        logger.info(f"Find: query = {query}, projection = {projection}")
-        return self._collection.find(query, projection)
+    def find(self, query, projection=None, limit=0, sort=None, **kwargs):
+        logger.info(
+            f"Find: query = {query}, projection = {projection}, limit = {limit}, sort = {sort}"
+        )
+        return self._collection.find(
+            query, projection=projection, limit=limit, sort=sort, **kwargs
+        )
 
     def find_one(self, query):
         logger.info(f"Find one: query = {query}")
