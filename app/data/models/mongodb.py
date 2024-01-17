@@ -1,6 +1,7 @@
 from pydantic import Field, BaseModel
 from typing import List, Optional
-from llama_index.llms.base import MessageRole
+from llama_index.llms.base import ChatMessage
+from llama_index.core.llms.types import MessageRole
 from app.utils import data_util
 from app.data.models.qa import Source
 
@@ -78,12 +79,26 @@ class LlamaIndexDocumentMetaReadable(LlamaIndexDocumentMeta):
                                        t > data_util.get_current_milliseconds() - 7 * data_util.MILLISECONDS_PER_DAY])
 
 
-class ChatData(CollectionModel):
+class Message(CollectionModel):
     conversation_id: str = Field(..., description="Unique id of the conversation")
-    timestamp: str = Field(..., description="Time in milliseconds")
-    text: str = Field(..., description="Content of the conversation")
-    role: MessageRole = Field(..., description="Role of the dialog")
+    role: MessageRole = Field(..., description="Author of the chat message")
+    content: str = Field(..., description="Content of the chat message")
+    timestamp: int = Field(..., description="Time when this chat message was sent, in milliseconds")
+    time: Optional[str] = Field(None, description="Time when this chat message was sent, in human readable format")
 
     @staticmethod
     def collection_name():
-        return "converstations"
+        return "chat_message"
+
+    @staticmethod
+    def from_chat_message(conversation_id: str, chat_message: ChatMessage):
+        return Message(
+            conversation_id=conversation_id,
+            role=chat_message.role,
+            content=chat_message.content,
+            timestamp=data_util.get_current_milliseconds(),
+        )
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.time = data_util.milliseconds_to_human_readable(self.timestamp)

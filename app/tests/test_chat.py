@@ -9,18 +9,16 @@ class ChatTest(unittest.TestCase):
     ROOT = "/api/v1"
     ROUTER_CHAT = "chat"
 
-
-    def test_dialog(self):
+    def test_non_streaming(self):
         message = "How many players in table tennis game?"
         body = {
             "conversation_id": "1",
-            "orignator": "user",
-            "dialog": message,
-            "sequence_num": 0
+            "role": "user",
+            "content": message,
         }
 
         response = self.client.post(
-            url=f"{self.ROOT}/{self.ROUTER_CHAT}/dialog", json=body
+            url=f"{self.ROOT}/{self.ROUTER_CHAT}/non-streaming", json=body
         )
         self.assertEqual(response.status_code, 200)
         json_response = response.json()

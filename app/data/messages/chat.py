@@ -1,16 +1,18 @@
-from typing import Optional
+from llama_index.llms.base import ChatMessage
 from pydantic import Field, BaseModel
-from llama_index.llms.base import MessageRole
-
-from app.data.models.chat import ChatReply
+from llama_index.core.llms.types import MessageRole
 
 
 class ChatRequest(BaseModel):
     conversation_id: str = Field(..., description="Unique id of the conversation")
-    role: MessageRole = Field(..., description="Role of the dialog")
-    dialog: str = Field(..., description="Content of the current request")
-    sequence_num: int = Field(..., description="The sequence number of current dialog")
+    content: str = Field(..., description="Content of the chat message")
+
+    def to_chat_message(self) -> ChatMessage:
+        return ChatMessage(
+            role=MessageRole.USER,
+            content=self.content,
+        )
 
 
 class ChatResponse(BaseModel):
-    data: Optional[ChatReply] = Field(None, description="Chat reply")
+    data: ChatMessage = Field(..., description="response from the chatbot")

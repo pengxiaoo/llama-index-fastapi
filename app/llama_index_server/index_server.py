@@ -1,26 +1,26 @@
 import pymongo
-import time
-from typing import Dict, List, Union
-
+from typing import List, Union
 from openai import OpenAI
-from openai.types.chat.chat_completion_user_message_param import ChatCompletionUserMessageParam
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from llama_index import Prompt
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
-from llama_index.llms.base import ChatMessage, MessageRole
+from llama_index.llms.base import ChatMessage
+from llama_index.core.llms.types import MessageRole
 from app.data.models.qa import Source, Answer, get_default_answer_id
-from app.data.models.mongodb import ChatData
 from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
+    Message,
 )
 from app.utils.mongo_dao import MongoDao
 from app.data.messages.qa import DocumentRequest
-from app.data.models.chat import ChatReply
 from app.utils.log_util import logger
-from app.utils import data_util
+from app.utils import (
+    data_util,
+    data_consts,
+)
 from app.llama_index_server.index_storage import index_storage, chat_engine
-from app.utils import data_consts
 
 SIMILARITY_CUTOFF = 0.85
 PROMPT_TEMPLATE_STR = (
@@ -43,7 +43,6 @@ mongodb = MongoDao(
     db_name,
     collection_name=collection_name,
 )
-
 
 
 def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
@@ -125,81 +124,72 @@ def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
 
 
-def history_for_converstaion(conversation_id: str) -> List[Dict]:
-    find_all_user_query = {
-        "conversation_id": conversation_id,
-        "role": {"$ne": MessageRole.ASSISTANT.value},
-    }
-    conversations = mongodb.find(
-        find_all_user_query,
+def get_message_history(conversation_id: str) -> List[Message]:
+    messages = mongodb.find(
+        query={"conversation_id": conversation_id, },
         limit=HISTORY_SIZE,
         sort=[("timestamp", pymongo.DESCENDING)],
     )
-    conversations = list(conversations)
-    logger.info(f"Found conversation size: {len(conversations)}")
-    return conversations
-
-
-def dump_data(conversation_id, text, message_ts, reply, reply_ts):
-    message_data = ChatData(
-        conversation_id=conversation_id,
-        timestamp=str(message_ts),
-        text=text,
-        role=MessageRole.USER,
-    )
-
-    reply_data = ChatData(
-        conversation_id=conversation_id,
-        timestamp=str(reply_ts),
-        text=reply,
-        role=MessageRole.ASSISTANT,
-    )
-    data = [reply_data.model_dump(), message_data.model_dump()]
-    mongodb.bulk_upsert(data, ["timestamp"])
-
-
-def chat(text: str, conversation_id: str) -> ChatReply:
-    data_util.assert_not_none(text, "query cannot be none")
-    ts = round(time.time() * 1000)
-    engine, newly_created = chat_engine.get(conversation_id)
-    logger.info(f"Query test: {text}, engine is new = {newly_created} for {conversation_id}")
-    if newly_created:
-        # create history
-        history = history_for_converstaion(conversation_id)
-        messages = [ChatMessage(role=MessageRole.USER, content=c["text"]) for c in history]
-        logger.info(f"Creating ChatMessage, size: {len(messages)}")
-        response = engine.chat(text, chat_history=messages)
+    if messages is None:
+        return []
     else:
-        response = engine.chat(text)
-    reply_ts = round(time.time() * 1000)
-    reply = ChatReply(
-        message=text,
-        reply=f"{response}",
-    )
-    dump_data(conversation_id, text, ts, reply.reply, reply_ts)
-    return reply
+        messages = list(messages)
+        messages = [Message(**m) for m in messages]
+        messages.sort(key=lambda m: m.timestamp)
+        logger.info(f"Found message history size: {len(messages)}")
+        return messages
 
 
-async def stream_chat(text, conversation_id):
+def save_chat_history(conversation_id: str, chat_message: ChatMessage):
+    message = Message.from_chat_message(conversation_id, chat_message)
+    mongodb.upsert_one({"conversation_id": conversation_id}, message)
+
+
+def chat(content: str, conversation_id: str) -> ChatMessage:
+    data_util.assert_not_none(content, "message content cannot be none")
+    user_message = ChatMessage(role=MessageRole.USER, content=content)
+    # save immediately, since the following steps may take a while and throw exceptions
+    save_chat_history(conversation_id, user_message)
+    engine, newly_created = chat_engine.get(conversation_id)
+    logger.info(f"conversation_id: {conversation_id}, engine is new: {newly_created}, message content: {content}")
+    if newly_created:
+        chat_response = engine.chat(content)
+    else:
+        history = get_message_history(conversation_id)
+        chat_messages = [ChatMessage(role=c.role, content=c.content) for c in history]
+        logger.info(f"Creating Chat history, size: {len(chat_messages)}")
+        chat_response = engine.chat(content, chat_history=chat_messages)
+    bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=chat_response.response)
+    save_chat_history(conversation_id, bot_message)
+    return bot_message
+
+
+async def stream_chat(content: str, conversation_id: str):
+    # todo: evaluate if this follows best practices
     # We only support using OpenAI's API
-    client = OpenAI()  # for OpenAI API calls
-    ts = round(time.time() * 1000)
-    history = [{"text": text}] + history_for_converstaion(conversation_id)
-    messages = [ChatCompletionUserMessageParam(content=c["text"], role="user") for c in history]
+    client = OpenAI()
+    ts = data_util.get_current_milliseconds()
+    user_message = ChatMessage(role=MessageRole.USER, content=content)
+    save_chat_history(conversation_id, user_message)
+    history = get_message_history(conversation_id)
+    messages = [ChatCompletionMessageParam(content=c.content, role=c.role) for c in history]
     completion = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model=index_storage.current_model,
         messages=messages,
         temperature=0,
         stream=True  # again, we set stream=True
     )
     chunks = []
     for chunk in completion:
-        chunk_message =  chunk.choices[0].delta.content
-        if chunk_message is None:
+        finish_reason = chunk.choices[0].finish_reason
+        content = chunk.choices[0].delta.content
+        if finish_reason == "stop" or finish_reason == "length":
+            # reached the end
+            bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
+            save_chat_history(conversation_id, bot_message)
             break
-        chunks.append(chunk_message)
-        logger.debug("Chunk message: %s", chunk_message)
-        yield chunk_message
-    reply_ts = round(time.time() * 1000)
-
-    dump_data(conversation_id, text, ts, "".join(chunks), reply_ts)
+        if content is None:
+            break
+        chunks.append(content)
+        logger.debug("Chunk message: %s", content)
+        yield content

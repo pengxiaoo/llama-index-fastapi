@@ -1,6 +1,5 @@
 from collections import deque
 import os
-from functools import lru_cache
 from contextlib import contextmanager
 from multiprocessing import Lock
 from typing import Tuple
@@ -105,8 +104,10 @@ class IndexStorage:
 index_storage = IndexStorage()
 
 
+# todo: evaluate whether we need this class
 class ChatEngine:
     """Class to keep track of all the chat engine"""
+
     def __init__(self, limit=10):
         self._data = {}
         self._limit = limit
@@ -119,7 +120,7 @@ class ChatEngine:
             conversation_id: the unique id of the conversation
 
         Returns:
-            engine
+            engine: the engine itself
             bool: whether it is newly created
         """
         engine = self._data.get(conversation_id)
