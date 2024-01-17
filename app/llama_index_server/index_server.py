@@ -36,7 +36,7 @@ PROMPT_TEMPLATE_STR = (
 )
 
 HISTORY_SIZE = 10
-# todo: create a mongo dao for chat
+# todo(alex): create a mongo dao for chat
 collection_name = "chat_message"
 db_name = "ai_bot"
 mongodb = MongoDao(
