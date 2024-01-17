@@ -13,13 +13,10 @@ from app.data.models.mongodb import (
     LlamaIndexDocumentMetaReadable,
     Message,
 )
-from app.utils.mongo_dao import MongoDao
+from app.llama_index_server.chat_message_dao import ChatMessageDao
 from app.data.messages.qa import DocumentRequest
 from app.utils.log_util import logger
-from app.utils import (
-    data_util,
-    data_consts,
-)
+from app.utils import data_util
 from app.llama_index_server.index_storage import index_storage, chat_engine
 
 SIMILARITY_CUTOFF = 0.85
@@ -34,16 +31,8 @@ PROMPT_TEMPLATE_STR = (
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )
-
-HISTORY_SIZE = 10
-# todo(alex): create a mongo dao for chat
-collection_name = "chat_message"
-db_name = "ai_bot"
-mongodb = MongoDao(
-    data_consts.MONGO_URI,
-    db_name,
-    collection_name=collection_name,
-)
+CHAT_HISTORY_LIMIT = 10
+chat_message_dao = ChatMessageDao()
 
 
 def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
@@ -126,9 +115,9 @@ def cleanup_for_test():
 
 
 def get_message_history(conversation_id: str) -> List[Message]:
-    messages = mongodb.find(
+    messages = chat_message_dao.find(
         query={"conversation_id": conversation_id, },
-        limit=HISTORY_SIZE,
+        limit=CHAT_HISTORY_LIMIT,
         sort=[("timestamp", pymongo.DESCENDING)],
     )
     if messages is None:
@@ -143,7 +132,7 @@ def get_message_history(conversation_id: str) -> List[Message]:
 
 def save_chat_history(conversation_id: str, chat_message: ChatMessage):
     message = Message.from_chat_message(conversation_id, chat_message)
-    mongodb.insert_one(message)
+    chat_message_dao.insert_one(message)
 
 
 def chat(content: str, conversation_id: str) -> Message:
@@ -161,16 +150,16 @@ def chat(content: str, conversation_id: str) -> Message:
         chat_messages = [ChatMessage(role=c.role, content=c.content) for c in history]
         logger.info(f"Creating Chat history, size: {len(chat_messages)}")
         chat_response = engine.chat(content, chat_history=chat_messages)
+    # todo: the bot_message is not based on the index(local database). something must be wrong
     bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=chat_response.response)
     save_chat_history(conversation_id, bot_message)
     return Message.from_chat_message(conversation_id, bot_message)
 
 
 async def stream_chat(content: str, conversation_id: str):
-    # todo: evaluate if this follows best practices
+    # todo: need to use chat engine based on index. otherwise, the local database is not utilized
     # We only support using OpenAI's API
     client = OpenAI()
-    ts = data_util.get_current_milliseconds()
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     save_chat_history(conversation_id, user_message)
     history = get_message_history(conversation_id)

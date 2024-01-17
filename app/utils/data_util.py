@@ -44,7 +44,6 @@ def now():
 
 
 def get_doc_id(text: str):
-    # todo use a better way to generate doc_id
     return text
 
 

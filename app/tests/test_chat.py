@@ -3,15 +3,19 @@ from fastapi.testclient import TestClient
 from llama_index.core.llms.types import MessageRole
 from app.main import app
 from app.data.models.mongodb import Message
+from app.data.messages.qa import QuestionAnsweringRequest
+from app.tests.test_base import BaseTest
 
 
-class ChatTest(unittest.TestCase):
+class ChatTest(BaseTest):
     client = TestClient(app=app)
     ROOT = "/api/v1"
     ROUTER_CHAT = "chat"
 
     def test_non_streaming(self):
-        message = "How many players in table tennis game?"
+        message = QuestionAnsweringRequest.ConfigDict.json_schema_extra[
+            "example_relevant_and_in_knowledge_base"
+        ]["question"]
         conversation_id = "1"
         body = {
             "conversation_id": conversation_id,
