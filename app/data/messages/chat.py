@@ -1,6 +1,7 @@
 from llama_index.llms.base import ChatMessage
 from pydantic import Field, BaseModel
 from llama_index.core.llms.types import MessageRole
+from app.data.models.mongodb import Message
 
 
 class ChatRequest(BaseModel):
@@ -15,4 +16,4 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    data: ChatMessage = Field(..., description="response from the chatbot")
+    data: Message = Field(..., description="response from the chatbot")

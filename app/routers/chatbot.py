@@ -17,8 +17,8 @@ chatbot_router = APIRouter(
 async def chat(request: ChatRequest):
     logger.info("Non streaming chat")
     conversation_id = request.conversation_id
-    chat_message = index_server.chat(request.content, conversation_id)
-    return ChatResponse(data=chat_message)
+    message = index_server.chat(request.content, conversation_id)
+    return ChatResponse(data=message)
 
 
 @chatbot_router.post("/streaming")

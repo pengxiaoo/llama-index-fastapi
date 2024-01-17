@@ -108,7 +108,7 @@ index_storage = IndexStorage()
 class ChatEngine:
     """Class to keep track of all the chat engine"""
 
-    def __init__(self, limit=10):
+    def __init__(self, limit=1000):
         self._data = {}
         self._limit = limit
         self._deque = deque(maxlen=limit)

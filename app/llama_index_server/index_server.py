@@ -36,7 +36,8 @@ PROMPT_TEMPLATE_STR = (
 )
 
 HISTORY_SIZE = 10
-collection_name = "conversation"
+# todo: create a mongo dao for chat
+collection_name = "chat_message"
 db_name = "ai_bot"
 mongodb = MongoDao(
     data_consts.MONGO_URI,
@@ -142,14 +143,15 @@ def get_message_history(conversation_id: str) -> List[Message]:
 
 def save_chat_history(conversation_id: str, chat_message: ChatMessage):
     message = Message.from_chat_message(conversation_id, chat_message)
-    mongodb.upsert_one({"conversation_id": conversation_id}, message)
+    mongodb.insert_one(message)
 
 
-def chat(content: str, conversation_id: str) -> ChatMessage:
+def chat(content: str, conversation_id: str) -> Message:
     data_util.assert_not_none(content, "message content cannot be none")
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     # save immediately, since the following steps may take a while and throw exceptions
     save_chat_history(conversation_id, user_message)
+    # todo: if it is possible newly_created = False while chat history is empty?
     engine, newly_created = chat_engine.get(conversation_id)
     logger.info(f"conversation_id: {conversation_id}, engine is new: {newly_created}, message content: {content}")
     if newly_created:
@@ -161,7 +163,7 @@ def chat(content: str, conversation_id: str) -> ChatMessage:
         chat_response = engine.chat(content, chat_history=chat_messages)
     bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=chat_response.response)
     save_chat_history(conversation_id, bot_message)
-    return bot_message
+    return Message.from_chat_message(conversation_id, bot_message)
 
 
 async def stream_chat(content: str, conversation_id: str):
