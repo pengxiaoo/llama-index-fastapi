@@ -140,7 +140,6 @@ def chat(content: str, conversation_id: str) -> Message:
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     # save immediately, since the following steps may take a while and throw exceptions
     save_chat_history(conversation_id, user_message)
-    # todo: if it is possible newly_created = False while chat history is empty?
     engine, newly_created = chat_engine.get(conversation_id)
     logger.info(f"conversation_id: {conversation_id}, engine is new: {newly_created}, message content: {content}")
     if newly_created:
@@ -150,7 +149,7 @@ def chat(content: str, conversation_id: str) -> Message:
         chat_messages = [ChatMessage(role=c.role, content=c.content) for c in history]
         logger.info(f"Creating Chat history, size: {len(chat_messages)}")
         chat_response = engine.chat(content, chat_history=chat_messages)
-    # todo: the bot_message is not based on the index(local database). something must be wrong
+    # todo: the chat_response failed to utilize the local database, need further investigation
     bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=chat_response.response)
     save_chat_history(conversation_id, bot_message)
     return Message.from_chat_message(conversation_id, bot_message)

@@ -13,7 +13,7 @@ chatbot_router = APIRouter(
 @chatbot_router.post(
     "/non-streaming",
     response_model=ChatResponse,
-)
+    description="Chat with the ai bot in a non streaming way.")
 async def chat(request: ChatRequest):
     logger.info("Non streaming chat")
     conversation_id = request.conversation_id
@@ -21,7 +21,10 @@ async def chat(request: ChatRequest):
     return ChatResponse(data=message)
 
 
-@chatbot_router.post("/streaming")
+@chatbot_router.post(
+    "/streaming",
+    description="Chat with the ai bot in a streaming way."
+)
 async def streaming_chat(request: ChatRequest):
     logger.info("streaming chat")
     conversation_id = request.conversation_id

@@ -11,6 +11,7 @@ from llama_index import (
     StorageContext,
     VectorStoreIndex,
 )
+from llama_index.chat_engine.types import ChatMode, BaseChatEngine
 from app.data.models.qa import Source, Answer
 from app.data.models.mongodb import LlamaIndexDocumentMeta
 from app.utils.log_util import logger
@@ -113,7 +114,7 @@ class ChatEngine:
         self._limit = limit
         self._deque = deque(maxlen=limit)
 
-    def get(self, conversation_id):
+    def get(self, conversation_id) -> (BaseChatEngine, bool):
         """Get a chat engine according to conversation_id
 
         Args:
@@ -132,7 +133,10 @@ class ChatEngine:
             del self._data[front]
         self._deque.append(conversation_id)
         logger.info(f"Create a new chat engine for {conversation_id}")
-        engine = index_storage.index().as_chat_engine()
+        engine = index_storage.index().as_chat_engine(
+            chat_mode=ChatMode.OPENAI,
+            verbose=True,
+        )
         self._data[conversation_id] = engine
         return engine, True
 

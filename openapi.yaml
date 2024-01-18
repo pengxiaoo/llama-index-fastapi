@@ -88,6 +88,45 @@ paths:
                 $ref: '#/components/schemas/DeleteDocumentResponse'
       security:
       - HTTPBasic: []
+  /api/v1/chat/non-streaming:
+    post:
+      tags:
+      - chatbot
+      summary: Chat
+      description: Chat with the ai bot in a non streaming way.
+      operationId: chat_api_v1_chat_non_streaming_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+  /api/v1/chat/streaming:
+    post:
+      tags:
+      - chatbot
+      summary: Streaming Chat
+      description: Chat with the ai bot in a streaming way.
+      operationId: streaming_chat_api_v1_chat_streaming_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
 components:
   schemas:
     Answer:
@@ -122,6 +161,31 @@ components:
       - source
       - answer
       title: Answer
+    ChatRequest:
+      properties:
+        conversation_id:
+          type: string
+          title: Conversation Id
+          description: Unique id of the conversation
+        content:
+          type: string
+          title: Content
+          description: Content of the chat message
+      type: object
+      required:
+      - conversation_id
+      - content
+      title: ChatRequest
+    ChatResponse:
+      properties:
+        data:
+          allOf:
+          - $ref: '#/components/schemas/Message'
+          description: response from the chatbot
+      type: object
+      required:
+      - data
+      title: ChatResponse
     DeleteDocumentResponse:
       properties:
         status_code:
@@ -240,6 +304,48 @@ components:
       - insert_timestamp
       - insert_time
       title: LlamaIndexDocumentMetaReadable
+    Message:
+      properties:
+        conversation_id:
+          type: string
+          title: Conversation Id
+          description: Unique id of the conversation
+        role:
+          allOf:
+          - $ref: '#/components/schemas/MessageRole'
+          description: Author of the chat message
+        content:
+          type: string
+          title: Content
+          description: Content of the chat message
+        timestamp:
+          type: integer
+          title: Timestamp
+          description: Time when this chat message was sent, in milliseconds
+        time:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Time
+          description: Time when this chat message was sent, in human readable format
+      type: object
+      required:
+      - conversation_id
+      - role
+      - content
+      - timestamp
+      title: Message
+    MessageRole:
+      type: string
+      enum:
+      - system
+      - user
+      - assistant
+      - function
+      - tool
+      - chatbot
+      title: MessageRole
+      description: Message role.
     QuestionAnsweringRequest:
       properties:
         question:
