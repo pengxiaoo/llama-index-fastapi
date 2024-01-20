@@ -133,8 +133,9 @@ class ChatEngine:
             del self._data[front]
         self._deque.append(conversation_id)
         logger.info(f"Create a new chat engine for {conversation_id}")
+        # mode: https://cobusgreyling.medium.com/llamaindex-chat-engine-858311dfb8cb
         engine = index_storage.index().as_chat_engine(
-            chat_mode=ChatMode.OPENAI,
+            chat_mode=ChatMode.REACT,
             verbose=True,
         )
         self._data[conversation_id] = engine
