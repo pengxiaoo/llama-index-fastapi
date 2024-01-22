@@ -3,11 +3,12 @@ from typing import List, Union
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from llama_index import Prompt
+from llama_index.prompts import ChatPromptTemplate
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
 from llama_index.llms.base import ChatMessage
 from llama_index.core.llms.types import MessageRole
-from app.data.models.qa import Source, Answer, get_default_answer_id
+from app.data.models.qa import Source, Answer, get_default_answer_id, get_default_answer
 from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
@@ -140,20 +141,61 @@ def chat(content: str, conversation_id: str) -> Message:
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     # save immediately, since the following steps may take a while and throw exceptions
     save_chat_history(conversation_id, user_message)
+    chat_text_qa_msgs = [
+        ChatMessage(
+            role=MessageRole.SYSTEM,
+            content=(
+                "If the question has nothing to do with golf at all, please answer "
+                f"'{get_default_answer_id()}'.\n"
+            ),
+        ),
+        ChatMessage(
+            role=MessageRole.USER,
+            content=(
+                "Context information is below.\n"
+                "---------------------\n"
+                "{context_str}\n"
+                "---------------------\n"
+                "Given the context information and not prior knowledge, "
+                "answer the question: {query_str}\n"
+            ),
+        ),
+    ]
+    text_qa_template = ChatPromptTemplate(chat_text_qa_msgs)
+    #text_qa_template = Prompt(PROMPT_TEMPLATE_STR)
     engine_kwargs = {
-        "text_qa_template": Prompt(PROMPT_TEMPLATE_STR)
+        "text_qa_template": text_qa_template,
+        "chat_mode": "condense_question",
     }
     engine, newly_created = chat_engine.get(conversation_id, engine_kwargs)
     logger.info(f"conversation_id: {conversation_id}, engine is new: {newly_created}, message content: {content}")
     if newly_created:
         chat_response = engine.chat(content)
+        chat_messages = []
+        history = []
     else:
         history = get_message_history(conversation_id)
         chat_messages = [ChatMessage(role=c.role, content=c.content) for c in history]
         logger.info(f"Creating Chat history, size: {len(chat_messages)}")
         chat_response = engine.chat(content, chat_history=chat_messages)
     # todo: the chat_response failed to utilize the local database, need further investigation
-    bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=chat_response.response)
+    logger.debug(f"Chat response: {chat_response.response}")
+    if chat_response.response == get_default_answer_id():
+        content = get_default_answer()
+        chat_messages = [dict(role=c.role, content=c.content) for c in history]
+        chat_messages += [
+            {
+                "role": "system",
+                "content": (
+                    "assume you are an experienced golf coach, if the question has anything to do with golf, "
+                    "please give short, simple, accurate, precise answer to the question, "
+                    "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
+                    f"'{get_default_answer()}'.")
+            }
+        ]
+    else:
+        content = chat_response.response
+    bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
     save_chat_history(conversation_id, bot_message)
     return Message.from_chat_message(conversation_id, bot_message)
 

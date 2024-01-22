@@ -135,8 +135,8 @@ class ChatEngine:
         logger.info(f"Create a new chat engine for {conversation_id}")
         # mode: https://cobusgreyling.medium.com/llamaindex-chat-engine-858311dfb8cb
         engine_kwargs = engine_kwargs or {}
-        engine_kwargs["verbose"] = True
-        engine_kwargs["chat_mode"] = ChatMode.REACT
+        engine_kwargs.setdefault("verbose", True)
+        engine_kwargs.setdefault("chat_mode", ChatMode.REACT)
         engine = index_storage.index().as_chat_engine(**engine_kwargs)
         self._data[conversation_id] = engine
         return engine, True
