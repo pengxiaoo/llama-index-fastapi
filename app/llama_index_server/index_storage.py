@@ -114,7 +114,7 @@ class ChatEngine:
         self._limit = limit
         self._deque = deque(maxlen=limit)
 
-    def get(self, conversation_id) -> (BaseChatEngine, bool):
+    def get(self, conversation_id, engine_kwargs=None) -> (BaseChatEngine, bool):
         """Get a chat engine according to conversation_id
 
         Args:
@@ -134,10 +134,10 @@ class ChatEngine:
         self._deque.append(conversation_id)
         logger.info(f"Create a new chat engine for {conversation_id}")
         # mode: https://cobusgreyling.medium.com/llamaindex-chat-engine-858311dfb8cb
-        engine = index_storage.index().as_chat_engine(
-            chat_mode=ChatMode.REACT,
-            verbose=True,
-        )
+        engine_kwargs = engine_kwargs or {}
+        engine_kwargs["verbose"] = True
+        engine_kwargs["chat_mode"] = ChatMode.REACT
+        engine = index_storage.index().as_chat_engine(**engine_kwargs)
         self._data[conversation_id] = engine
         return engine, True
 

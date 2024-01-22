@@ -140,7 +140,10 @@ def chat(content: str, conversation_id: str) -> Message:
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     # save immediately, since the following steps may take a while and throw exceptions
     save_chat_history(conversation_id, user_message)
-    engine, newly_created = chat_engine.get(conversation_id)
+    engine_kwargs = {
+        "text_qa_template": Prompt(PROMPT_TEMPLATE_STR)
+    }
+    engine, newly_created = chat_engine.get(conversation_id, engine_kwargs)
     logger.info(f"conversation_id: {conversation_id}, engine is new: {newly_created}, message content: {content}")
     if newly_created:
         chat_response = engine.chat(content)
