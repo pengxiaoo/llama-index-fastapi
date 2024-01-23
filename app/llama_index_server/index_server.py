@@ -7,6 +7,7 @@ from llama_index.prompts import ChatPromptTemplate
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
 from llama_index.llms.base import ChatMessage
+from llama_index.chat_engine.types import ChatMode
 from llama_index.core.llms.types import MessageRole
 from app.data.models.qa import Source, Answer, get_default_answer_id, get_default_answer
 from app.data.models.mongodb import (
@@ -115,7 +116,7 @@ def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
 
 
-def get_message_history(conversation_id: str) -> List[Message]:
+def get_chat_history(conversation_id: str) -> List[Message]:
     messages = chat_message_dao.find(
         query={"conversation_id": conversation_id, },
         limit=CHAT_HISTORY_LIMIT,
@@ -162,19 +163,18 @@ def chat(content: str, conversation_id: str) -> Message:
         ),
     ]
     text_qa_template = ChatPromptTemplate(chat_text_qa_msgs)
-    #text_qa_template = Prompt(PROMPT_TEMPLATE_STR)
+    # text_qa_template = Prompt(PROMPT_TEMPLATE_STR)
     engine_kwargs = {
         "text_qa_template": text_qa_template,
-        "chat_mode": "condense_question",
+        "chat_mode": ChatMode.CONDENSE_QUESTION,
     }
     engine, newly_created = chat_engine.get(conversation_id, engine_kwargs)
     logger.info(f"conversation_id: {conversation_id}, engine is new: {newly_created}, message content: {content}")
     if newly_created:
         chat_response = engine.chat(content)
-        chat_messages = []
         history = []
     else:
-        history = get_message_history(conversation_id)
+        history = get_chat_history(conversation_id)
         chat_messages = [ChatMessage(role=c.role, content=c.content) for c in history]
         logger.info(f"Creating Chat history, size: {len(chat_messages)}")
         chat_response = engine.chat(content, chat_history=chat_messages)
@@ -185,7 +185,7 @@ def chat(content: str, conversation_id: str) -> Message:
         chat_messages = [dict(role=c.role, content=c.content) for c in history]
         chat_messages += [
             {
-                "role": "system",
+                "role": MessageRole.SYSTEM,
                 "content": (
                     "assume you are an experienced golf coach, if the question has anything to do with golf, "
                     "please give short, simple, accurate, precise answer to the question, "
@@ -206,7 +206,7 @@ async def stream_chat(content: str, conversation_id: str):
     client = OpenAI()
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     save_chat_history(conversation_id, user_message)
-    history = get_message_history(conversation_id)
+    history = get_chat_history(conversation_id)
     messages = [ChatCompletionMessageParam(content=c.content, role=c.role) for c in history]
     completion = client.chat.completions.create(
         model=index_storage.current_model,

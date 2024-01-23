@@ -46,8 +46,8 @@ async def add_response_timing_header(request: Request, call_next):
 patch_openapi(app)
 prefix = "/api/v1"
 app.include_router(qa_router, prefix=prefix)
-app.include_router(admin_router, prefix=prefix)
 app.include_router(chatbot_router, prefix=prefix)
+app.include_router(admin_router, prefix=prefix)
 
 
 def handle_error_msg(request, error_msg, error_code=None):

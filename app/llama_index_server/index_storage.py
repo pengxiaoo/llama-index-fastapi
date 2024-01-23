@@ -119,6 +119,7 @@ class ChatEngine:
 
         Args:
             conversation_id: the unique id of the conversation
+            engine_kwargs
 
         Returns:
             engine: the engine itself
