@@ -181,18 +181,27 @@ def chat(content: str, conversation_id: str) -> Message:
     # todo: the chat_response failed to utilize the local database, need further investigation
     logger.debug(f"Chat response: {chat_response.response}")
     if chat_response.response == get_default_answer_id():
-        content = get_default_answer()
+        logger.debug("Irrelevant question, use OpenAI")
+        client = OpenAI()
         chat_messages = [dict(role=c.role, content=c.content) for c in history]
         chat_messages += [
-            {
-                "role": MessageRole.SYSTEM,
-                "content": (
+            dict(
+                role=MessageRole.SYSTEM,
+                content=(
                     "assume you are an experienced golf coach, if the question has anything to do with golf, "
                     "please give short, simple, accurate, precise answer to the question, "
                     "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
-                    f"'{get_default_answer()}'.")
-            }
+                    f"'{get_default_answer()}'."
+                )
+            )
         ]
+        completion = client.chat.completions.create(
+            model=index_storage.current_model,
+            messages=chat_messages,
+            temperature=0,
+        )
+        mes = completion.choices[0].message.content
+        content = mes or get_default_answer()
     else:
         content = chat_response.response
     bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
