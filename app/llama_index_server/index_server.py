@@ -1,7 +1,6 @@
 import pymongo
 from typing import List, Union
 from openai import OpenAI
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from llama_index import Prompt
 from llama_index.prompts import ChatPromptTemplate
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
@@ -184,7 +183,7 @@ def chat(content: str, conversation_id: str) -> Message:
         logger.debug("Irrelevant question, use OpenAI")
         client = OpenAI()
         chat_messages = [dict(role=c.role, content=c.content) for c in history]
-        chat_messages += [
+        chat_messages = [
             dict(
                 role=MessageRole.SYSTEM,
                 content=(
@@ -194,7 +193,7 @@ def chat(content: str, conversation_id: str) -> Message:
                     f"'{get_default_answer()}'."
                 )
             )
-        ]
+        ] + chat_messages
         completion = client.chat.completions.create(
             model=index_storage.current_model,
             messages=chat_messages,
@@ -216,7 +215,18 @@ async def stream_chat(content: str, conversation_id: str):
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     save_chat_history(conversation_id, user_message)
     history = get_chat_history(conversation_id)
-    messages = [ChatCompletionMessageParam(content=c.content, role=c.role) for c in history]
+    messages = [dict(content=c.content, role=c.role) for c in history]
+    messages = [
+            dict(
+                role=MessageRole.SYSTEM,
+                content=(
+                    "assume you are an experienced golf coach, if the question has anything to do with golf, "
+                    "please give short, simple, accurate, precise answer to the question, "
+                    "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
+                    f"'{get_default_answer()}'."
+                )
+            ),
+        ] + messages
     completion = client.chat.completions.create(
         model=index_storage.current_model,
         messages=messages,
@@ -229,8 +239,9 @@ async def stream_chat(content: str, conversation_id: str):
         content = chunk.choices[0].delta.content
         if finish_reason == "stop" or finish_reason == "length":
             # reached the end
-            bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
-            save_chat_history(conversation_id, bot_message)
+            if content is not None:
+                bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
+                save_chat_history(conversation_id, bot_message)
             break
         if content is None:
             break
