@@ -1,5 +1,4 @@
 from typing import Union
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from llama_index import Prompt
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
@@ -218,20 +217,20 @@ async def stream_chat(content: str, conversation_id: str):
     # We only support using OpenAI's API
     client = OpenAI()
     user_message = ChatMessage(role=MessageRole.USER, content=content)
-    save_chat_history(conversation_id, user_message)
-    history = get_chat_history(conversation_id)
+    chat_message_dao.save_chat_history(conversation_id, user_message)
+    history = chat_message_dao.get_chat_history(conversation_id)
     messages = [dict(content=c.content, role=c.role) for c in history]
     messages = [
-            dict(
-                role=MessageRole.SYSTEM,
-                content=(
-                    "assume you are an experienced golf coach, if the question has anything to do with golf, "
-                    "please give short, simple, accurate, precise answer to the question, "
-                    "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
-                    f"'{get_default_answer()}'."
-                )
-            ),
-        ] + messages
+                   dict(
+                       role=MessageRole.SYSTEM,
+                       content=(
+                           "assume you are an experienced golf coach, if the question has anything to do with golf, "
+                           "please give short, simple, accurate, precise answer to the question, "
+                           "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
+                           f"'{get_default_answer()}'."
+                       )
+                   ),
+               ] + messages
     completion = client.chat.completions.create(
         model=index_storage.current_model,
         messages=messages,
@@ -246,7 +245,7 @@ async def stream_chat(content: str, conversation_id: str):
             # reached the end
             if content is not None:
                 bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
-                save_chat_history(conversation_id, bot_message)
+                chat_message_dao.save_chat_history(conversation_id, bot_message)
             break
         if content is None:
             break
