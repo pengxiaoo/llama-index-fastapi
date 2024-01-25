@@ -49,45 +49,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DocumentResponse'
-  /api/v1/admin/documents/{doc_id}:
-    delete:
-      tags:
-      - (admin) high priority admin operations, usually for testing and debugging
-      summary: Delete Doc
-      description: delete a document by doc_id. only for testing
-      operationId: delete_doc_api_v1_admin_documents__doc_id__delete
-      security:
-      - HTTPBasic: []
-      parameters:
-      - name: doc_id
-        in: path
-        required: true
-        schema:
-          type: string
-          title: The ID of the document to delete
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteDocumentResponse'
-  /api/v1/admin/cleanup:
-    post:
-      tags:
-      - (admin) high priority admin operations, usually for testing and debugging
-      summary: Cleanup For Test
-      description: cleanup all the user query meta data in mongodb. only for testing
-      operationId: cleanup_for_test_api_v1_admin_cleanup_post
-      responses:
-        '200':
-          description: Successful Response
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteDocumentResponse'
-      security:
-      - HTTPBasic: []
   /api/v1/chat/non-streaming:
     post:
       tags:
@@ -127,6 +88,45 @@ paths:
           content:
             application/json:
               schema: {}
+  /api/v1/admin/documents/{doc_id}:
+    delete:
+      tags:
+      - (admin) high priority admin operations, usually for testing and debugging
+      summary: Delete Doc
+      description: delete a document by doc_id. only for testing
+      operationId: delete_doc_api_v1_admin_documents__doc_id__delete
+      security:
+      - HTTPBasic: []
+      parameters:
+      - name: doc_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: The ID of the document to delete
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteDocumentResponse'
+  /api/v1/admin/cleanup:
+    post:
+      tags:
+      - (admin) high priority admin operations, usually for testing and debugging
+      summary: Cleanup For Test
+      description: cleanup all the user query meta data in mongodb. only for testing
+      operationId: cleanup_for_test_api_v1_admin_cleanup_post
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteDocumentResponse'
+      security:
+      - HTTPBasic: []
 components:
   schemas:
     Answer:

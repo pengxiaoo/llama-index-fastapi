@@ -1,27 +1,27 @@
-import pymongo
-from typing import List, Union
-from openai import OpenAI
+from typing import Union
+from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from llama_index import Prompt
-from llama_index.prompts import ChatPromptTemplate
 from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.indices.postprocessor import SimilarityPostprocessor
 from llama_index.llms.base import ChatMessage
-from llama_index.chat_engine.types import ChatMode
+from llama_index.agent import OpenAIAgent
+from llama_index.llms import OpenAI
 from llama_index.core.llms.types import MessageRole
+from app.data.messages.qa import DocumentRequest
 from app.data.models.qa import Source, Answer, get_default_answer_id, get_default_answer
 from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
     Message,
 )
-from app.llama_index_server.chat_message_dao import ChatMessageDao
-from app.data.messages.qa import DocumentRequest
 from app.utils.log_util import logger
 from app.utils import data_util
-from app.llama_index_server.index_storage import index_storage, chat_engine
+from app.llama_index_server.chat_message_dao import ChatMessageDao
+from app.llama_index_server.index_storage import index_storage
+from app.llama_index_server.my_query_engine_tool import MyQueryEngineTool, MATCHED_MARK
 
 SIMILARITY_CUTOFF = 0.85
-PROMPT_TEMPLATE_STR = (
+PROMPT_TEMPLATE_FOR_QUERY_ENGINE = (
     "We have provided context information below. \n"
     "---------------------\n"
     "{context_str}"
@@ -32,35 +32,73 @@ PROMPT_TEMPLATE_STR = (
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )
-CHAT_HISTORY_LIMIT = 10
+SYSTEM_PROMPT_TEMPLATE_FOR_CHAT_ENGINE = (
+    "Your are an expert Q&A system that can find relevant information using the tools at your disposal.\n"
+    "The tools can access a set of typical questions a golf beginner might ask.\n"
+    "If the user's query matches one of those typical questions, stop and return the matched question immediately.\n"
+    "If the user's query doesn't match any of those typical questions, "
+    "then you should act as an experienced golf coach, and firstly evaluate whether the question is relevant to golf.\n"
+    f"if it is not golf relevant at all, please answer '{get_default_answer_id()},"
+    "otherwise, please give short, simple, accurate, precise answer to the question, limited to 80 words maximum.\n"
+    "You may need to combine the chat history to fully understand the query of the user.\n"
+)
 chat_message_dao = ChatMessageDao()
+
+
+def get_local_query_engine():
+    """
+    strictly limited to local knowledge base. our local knowledge base is a list of standard questions which are indexed in vector store,
+    while the standard answers are stored in mongodb through DocumentMetaDao.
+    there is a one-to-one mapping between each standard question and a standard answer.
+    we may update or optimize the standard answers in mongodb frequently, but usually we don't update the standard questions.
+    if a query matches one of the standard questions, we can find the respective standard answer from mongodb.
+    """
+    index = index_storage.index()
+    return index.as_query_engine(
+        response_synthesizer=get_response_synthesizer(
+            response_mode=ResponseMode.NO_TEXT
+        ),
+        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=SIMILARITY_CUTOFF)],
+    )
+
+
+def get_matched_question_from_local_query_engine(query_text):
+    local_query_engine = get_local_query_engine()
+    local_query_response = local_query_engine.query(query_text)
+    if len(local_query_response.source_nodes) > 0:
+        matched_node = local_query_response.source_nodes[0]
+        matched_question = matched_node.text
+        logger.debug(f"Found matched question from index: {matched_question}")
+        return matched_question
+    else:
+        return None
+
+
+def get_doc_meta(text):
+    matched_doc_id = data_util.get_doc_id(text)
+    mongo = index_storage.mongo()
+    doc_meta = mongo.find_one({"doc_id": matched_doc_id})
+    doc_meta = LlamaIndexDocumentMeta(**doc_meta) if doc_meta else None
+    return matched_doc_id, doc_meta
+
+
+def get_llm_query_engine():
+    index = index_storage.index()
+    qa_template = Prompt(PROMPT_TEMPLATE_FOR_QUERY_ENGINE)
+    return index.as_query_engine(text_qa_template=qa_template)
 
 
 def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
     data_util.assert_not_none(query_text, "query cannot be none")
     logger.info(f"Query test: {query_text}")
     # first search locally
-    index = index_storage.index()
-    local_query_engine = index.as_query_engine(
-        response_synthesizer=get_response_synthesizer(
-            response_mode=ResponseMode.NO_TEXT
-        ),
-        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=SIMILARITY_CUTOFF)],
-    )
-    local_query_response = local_query_engine.query(query_text)
-    if len(local_query_response.source_nodes) > 0:
-        matched_node = local_query_response.source_nodes[0]
-        matched_question = matched_node.text
-        logger.debug(f"Found matched question from index: {matched_question}")
-        matched_doc_id = data_util.get_doc_id(matched_question)
-        mongo = index_storage.mongo()
-        doc_meta = mongo.find_one({"doc_id": matched_doc_id})
-        doc_meta = LlamaIndexDocumentMeta(**doc_meta) if doc_meta else None
-        current_timestamp = data_util.get_current_milliseconds()
+    matched_question = get_matched_question_from_local_query_engine(query_text)
+    if matched_question:
+        matched_doc_id, doc_meta = get_doc_meta(matched_question)
         if doc_meta:
-            logger.debug(f"Found doc meta from mongodb: {doc_meta}")
-            doc_meta.query_timestamps.append(current_timestamp)
-            mongo.upsert_one({"doc_id": matched_doc_id}, doc_meta)
+            logger.debug(f"An matched doc meta found from mongodb: {doc_meta}")
+            doc_meta.query_timestamps.append(data_util.get_current_milliseconds())
+            index_storage.mongo().upsert_one({"doc_id": matched_doc_id}, doc_meta)
             if only_for_meta:
                 return doc_meta
             else:
@@ -77,16 +115,14 @@ def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocu
             if only_for_meta:
                 return None
     # if not found, turn to LLM
-    qa_template = Prompt(PROMPT_TEMPLATE_STR)
-    llm_query_engine = index.as_query_engine(text_qa_template=qa_template)
+    llm_query_engine = get_llm_query_engine()
     response = llm_query_engine.query(query_text)
-    answer_text = str(response)
     # save the question-answer pair to index
     answer = Answer(
         category=None,
         question=query_text,
         source=index_storage.current_model,
-        answer=answer_text,
+        answer=str(response),
     )
     index_storage.add_doc(answer)
     return answer
@@ -115,96 +151,65 @@ def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
 
 
-def get_chat_history(conversation_id: str) -> List[Message]:
-    messages = chat_message_dao.find(
-        query={"conversation_id": conversation_id, },
-        limit=CHAT_HISTORY_LIMIT,
-        sort=[("timestamp", pymongo.DESCENDING)],
-    )
-    if messages is None:
-        return []
-    else:
-        messages = list(messages)
-        messages = [Message(**m) for m in messages]
-        messages.sort(key=lambda m: m.timestamp)
-        logger.info(f"Found message history size: {len(messages)}")
-        return messages
-
-
-def save_chat_history(conversation_id: str, chat_message: ChatMessage):
-    message = Message.from_chat_message(conversation_id, chat_message)
-    chat_message_dao.insert_one(message)
-
-
-def chat(content: str, conversation_id: str) -> Message:
-    data_util.assert_not_none(content, "message content cannot be none")
-    user_message = ChatMessage(role=MessageRole.USER, content=content)
-    # save immediately, since the following steps may take a while and throw exceptions
-    save_chat_history(conversation_id, user_message)
-    chat_text_qa_msgs = [
-        ChatMessage(
-            role=MessageRole.SYSTEM,
-            content=(
-                "If the question has nothing to do with golf at all, please answer "
-                f"'{get_default_answer_id()}'.\n"
-            ),
-        ),
-        ChatMessage(
-            role=MessageRole.USER,
-            content=(
-                "Context information is below.\n"
-                "---------------------\n"
-                "{context_str}\n"
-                "---------------------\n"
-                "Given the context information and not prior knowledge, "
-                "answer the question: {query_str}\n"
-            ),
-        ),
-    ]
-    text_qa_template = ChatPromptTemplate(chat_text_qa_msgs)
-    # text_qa_template = Prompt(PROMPT_TEMPLATE_STR)
-    engine_kwargs = {
-        "text_qa_template": text_qa_template,
-        "chat_mode": ChatMode.CONDENSE_QUESTION,
-    }
-    engine, newly_created = chat_engine.get(conversation_id, engine_kwargs)
-    logger.info(f"conversation_id: {conversation_id}, engine is new: {newly_created}, message content: {content}")
-    if newly_created:
-        chat_response = engine.chat(content)
-        history = []
-    else:
-        history = get_chat_history(conversation_id)
-        chat_messages = [ChatMessage(role=c.role, content=c.content) for c in history]
-        logger.info(f"Creating Chat history, size: {len(chat_messages)}")
-        chat_response = engine.chat(content, chat_history=chat_messages)
-    # todo: the chat_response failed to utilize the local database, need further investigation
-    logger.debug(f"Chat response: {chat_response.response}")
-    if chat_response.response == get_default_answer_id():
-        logger.debug("Irrelevant question, use OpenAI")
-        client = OpenAI()
-        chat_messages = [dict(role=c.role, content=c.content) for c in history]
-        chat_messages = [
-            dict(
-                role=MessageRole.SYSTEM,
-                content=(
-                    "assume you are an experienced golf coach, if the question has anything to do with golf, "
-                    "please give short, simple, accurate, precise answer to the question, "
-                    "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
-                    f"'{get_default_answer()}'."
-                )
-            )
-        ] + chat_messages
-        completion = client.chat.completions.create(
-            model=index_storage.current_model,
-            messages=chat_messages,
-            temperature=0,
+# todo: use cache?
+def get_chat_engine(conversation_id: str, streaming: bool = False):
+    local_query_engine = get_local_query_engine()
+    query_engine_tools = [
+        MyQueryEngineTool.from_defaults(
+            query_engine=local_query_engine,
+            name="local_query_engine",
+            description="Queries from a knowledge base consists of typical questions that a golf beginner might ask",
         )
-        mes = completion.choices[0].message.content
-        content = mes or get_default_answer()
+    ]
+    chat_llm = OpenAI(
+        temperature=0,
+        model=index_storage.current_model,
+        streaming=streaming,
+        max_tokens=100,
+    )
+    chat_history = chat_message_dao.get_chat_history(conversation_id)
+    chat_history = [ChatMessage(role=c.role, content=c.content) for c in chat_history]
+    # todo: when the tool find a matched question, should return directly, without further querying from openai
+    return OpenAIAgent.from_tools(
+        tools=query_engine_tools,
+        llm=chat_llm,
+        chat_history=chat_history,
+        verbose=True,
+        system_prompt=SYSTEM_PROMPT_TEMPLATE_FOR_CHAT_ENGINE,
+    )
+
+
+def get_response_text_from_chat(agent_chat_response):
+    sources = agent_chat_response.sources
+    if len(sources) > 0:
+        source_content = sources[0].content
+        if MATCHED_MARK in source_content:
+            return source_content.replace(MATCHED_MARK, "").strip()
+    return agent_chat_response.response
+
+
+def chat(query_text: str, conversation_id: str) -> Message:
+    # we will not index chat messages in vector store, but will save them in mongodb
+    data_util.assert_not_none(query_text, "query content cannot be none")
+    user_message = ChatMessage(role=MessageRole.USER, content=query_text)
+    # save immediately, since the following steps may take a while and throw exceptions
+    chat_message_dao.save_chat_history(conversation_id, user_message)
+    chat_engine = get_chat_engine(conversation_id)
+    agent_chat_response = chat_engine.chat(query_text)
+    response_text = get_response_text_from_chat(agent_chat_response)
+    # todo: change the if condition to: response_text == get_default_answer_id()
+    response_text = get_default_answer() if get_default_answer_id() in response_text else response_text
+    matched_doc_id, doc_meta = get_doc_meta(response_text)
+    if doc_meta:
+        logger.debug(f"An matched doc meta found from mongodb: {doc_meta}")
+        doc_meta.query_timestamps.append(data_util.get_current_milliseconds())
+        index_storage.mongo().upsert_one({"doc_id": matched_doc_id}, doc_meta)
+        bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=doc_meta.answer)
     else:
-        content = chat_response.response
-    bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
-    save_chat_history(conversation_id, bot_message)
+        # means the chat engine cannot find a matched doc meta from mongodb
+        logger.warning(f"'{matched_doc_id}' is not found in mongodb")
+        bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=response_text)
+    chat_message_dao.save_chat_history(conversation_id, bot_message)
     return Message.from_chat_message(conversation_id, bot_message)
 
 

@@ -2,13 +2,22 @@
 
 <img src="./imgs/system_architecture.png" alt="pic" width="1000"/>
 
-- if user asks a question, the bot will try to match the question and find the answer from local database first
-- local knowledge base is a csv file of question/answer pairs, which is embedded(vectorized) by llama index when first
-  run
-- if no good matches found, the bot then call openAI's chatgpt api to get the answer, and insert the question/answer
-  pair into the index. so next time the bot will be able to answer a similar question from local database
-- if the question is not relevant to the topic(in our case the topic is Golf), the bot will call openAI's chatgpt api to
-  get the answer
+there are 2 modes: question answering mode and chatbot mode.
+
+### question answering mode
+
+- local knowledge base origins from a csv file of standard question/answer pairs. the standard questions are embedded(
+  vectorized) by llama index when first run; while the standard answers are stored in MongoDB. the questions and answers
+  are intended to be decoupled and saved in different places
+- if user asks a question, query engine will try to find a matched question from local database, and if found, the bot
+  will then query MongoDB to get the answer
+- if no good matches found, the bot then call openAI's chatgpt api to get the answer, and insert the question into the
+  index. so next time the bot will be able to answer a similar question from local database
+- if the question is not relevant to the topic(in our case the topic is Golf), the bot will refuse to answer
+
+### chatbot mode
+
+- currently in development
 
 #### When asking a question in the knowledge base
 
@@ -18,11 +27,11 @@
 
 <img src="./imgs/question_answering_demo_2.png" alt="pic" width="600"/>
 
-## More details
+## More backgrounds
 
 - the bot uses fastapi as the web framework, llama index as the search engine, MongoDB as the metadata storage
-- during the first run, csv file is ingested and embedded by llama index as vector store, and the metadata is stored in
-  MongoDB
+- during the first run, csv file is ingested and the questions are embedded by llama index as vector store, and the
+  answers and other metadata are stored in MongoDB
 - the bot uses https://api.openai.com/v1/embeddings for embedding. it is very cheap and with high performance
 - the bot uses https://api.openai.com/v1/chat/completions to ask chatgpt for answers. by default gpt-3.5-turbo is used
   as the model
