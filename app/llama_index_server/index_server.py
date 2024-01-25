@@ -6,19 +6,19 @@ from llama_index.indices.postprocessor import SimilarityPostprocessor
 from llama_index.llms.base import ChatMessage
 from llama_index.agent import OpenAIAgent
 from llama_index.llms import OpenAI
-from llama_index.tools import QueryEngineTool
 from llama_index.core.llms.types import MessageRole
-from app.data.models.qa import Source, Answer, get_default_answer_id
+from app.data.messages.qa import DocumentRequest
+from app.data.models.qa import Source, Answer, get_default_answer_id, get_default_answer
 from app.data.models.mongodb import (
     LlamaIndexDocumentMeta,
     LlamaIndexDocumentMetaReadable,
     Message,
 )
-from app.llama_index_server.chat_message_dao import ChatMessageDao
-from app.data.messages.qa import DocumentRequest
 from app.utils.log_util import logger
 from app.utils import data_util
+from app.llama_index_server.chat_message_dao import ChatMessageDao
 from app.llama_index_server.index_storage import index_storage
+from app.llama_index_server.my_query_engine_tool import MyQueryEngineTool, MATCHED_MARK
 
 SIMILARITY_CUTOFF = 0.85
 PROMPT_TEMPLATE_FOR_QUERY_ENGINE = (
@@ -35,11 +35,11 @@ PROMPT_TEMPLATE_FOR_QUERY_ENGINE = (
 SYSTEM_PROMPT_TEMPLATE_FOR_CHAT_ENGINE = (
     "Your are an expert Q&A system that can find relevant information using the tools at your disposal.\n"
     "The tools can access a set of typical questions a golf beginner might ask.\n"
-    "If the user's query matches one of those typical questions, return the matched question only.\n"
+    "If the user's query matches one of those typical questions, stop and return the matched question immediately.\n"
     "If the user's query doesn't match any of those typical questions, "
-    "then you should act as an experienced golf coach, "
-    "and give short, simple, accurate, precise answer to the question, limited to 80 words maximum.\n"
-    f"If the question has nothing to do with golf at all, please answer '{get_default_answer_id()}'.\n"
+    "then you should act as an experienced golf coach, and firstly evaluate whether the question is relevant to golf.\n"
+    f"if it is not golf relevant at all, please answer '{get_default_answer_id()},"
+    "otherwise, please give short, simple, accurate, precise answer to the question, limited to 80 words maximum.\n"
     "You may need to combine the chat history to fully understand the query of the user.\n"
 )
 chat_message_dao = ChatMessageDao()
@@ -117,13 +117,12 @@ def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocu
     # if not found, turn to LLM
     llm_query_engine = get_llm_query_engine()
     response = llm_query_engine.query(query_text)
-    answer_text = str(response)
     # save the question-answer pair to index
     answer = Answer(
         category=None,
         question=query_text,
         source=index_storage.current_model,
-        answer=answer_text,
+        answer=str(response),
     )
     index_storage.add_doc(answer)
     return answer
@@ -152,11 +151,11 @@ def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
 
 
-# todo: use cache to save memory?
+# todo: use cache?
 def get_chat_engine(conversation_id: str, streaming: bool = False):
     local_query_engine = get_local_query_engine()
     query_engine_tools = [
-        QueryEngineTool.from_defaults(
+        MyQueryEngineTool.from_defaults(
             query_engine=local_query_engine,
             name="local_query_engine",
             description="Queries from a knowledge base consists of typical questions that a golf beginner might ask",
@@ -166,9 +165,11 @@ def get_chat_engine(conversation_id: str, streaming: bool = False):
         temperature=0,
         model=index_storage.current_model,
         streaming=streaming,
+        max_tokens=100,
     )
     chat_history = chat_message_dao.get_chat_history(conversation_id)
     chat_history = [ChatMessage(role=c.role, content=c.content) for c in chat_history]
+    # todo: when the tool find a matched question, should return directly, without further querying from openai
     return OpenAIAgent.from_tools(
         tools=query_engine_tools,
         llm=chat_llm,
@@ -178,13 +179,26 @@ def get_chat_engine(conversation_id: str, streaming: bool = False):
     )
 
 
+def get_response_text_from_chat(agent_chat_response):
+    sources = agent_chat_response.sources
+    if len(sources) > 0:
+        source_content = sources[0].content
+        if MATCHED_MARK in source_content:
+            return source_content.replace(MATCHED_MARK, "").strip()
+    return agent_chat_response.response
+
+
 def chat(query_text: str, conversation_id: str) -> Message:
+    # we will not index chat messages in vector store, but will save them in mongodb
     data_util.assert_not_none(query_text, "query content cannot be none")
     user_message = ChatMessage(role=MessageRole.USER, content=query_text)
     # save immediately, since the following steps may take a while and throw exceptions
     chat_message_dao.save_chat_history(conversation_id, user_message)
     chat_engine = get_chat_engine(conversation_id)
-    response_text = chat_engine.chat(query_text)
+    agent_chat_response = chat_engine.chat(query_text)
+    response_text = get_response_text_from_chat(agent_chat_response)
+    # todo: change the if condition to: response_text == get_default_answer_id()
+    response_text = get_default_answer() if get_default_answer_id() in response_text else response_text
     matched_doc_id, doc_meta = get_doc_meta(response_text)
     if doc_meta:
         logger.debug(f"An matched doc meta found from mongodb: {doc_meta}")

@@ -10,6 +10,7 @@ from app.data.messages.qa import (
 )
 from app.data.models.qa import Source, get_default_answer
 from app.utils import data_consts
+from app.llama_index_server.chat_message_dao import ChatMessageDao
 
 
 class BaseTest(unittest.TestCase):
@@ -17,6 +18,7 @@ class BaseTest(unittest.TestCase):
     ROOT = "/api/v1"
     ROUTER_QA = "qa"
     ROUTER_ADMIN = "admin"
+    chat_message_dao = ChatMessageDao()
 
     @staticmethod
     def create_authorization_header(username: str, password: str) -> dict:
