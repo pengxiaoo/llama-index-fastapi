@@ -1,5 +1,4 @@
-import pymongo
-from typing import List, Union
+from typing import Union
 from openai import OpenAI
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 from llama_index import Prompt
@@ -22,7 +21,7 @@ from app.utils import data_util
 from app.llama_index_server.index_storage import index_storage, chat_engine
 
 SIMILARITY_CUTOFF = 0.85
-PROMPT_TEMPLATE_STR = (
+QUERY_PROMPT_TEMPLATE = (
     "We have provided context information below. \n"
     "---------------------\n"
     "{context_str}"
@@ -33,34 +32,50 @@ PROMPT_TEMPLATE_STR = (
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )
-CHAT_HISTORY_LIMIT = 10
 chat_message_dao = ChatMessageDao()
+
+
+def get_local_query_engine():
+    index = index_storage.index()
+    return index.as_query_engine(
+        response_synthesizer=get_response_synthesizer(
+            response_mode=ResponseMode.NO_TEXT
+        ),
+        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=SIMILARITY_CUTOFF)],
+    )
+
+
+def get_matched_question_from_local_query_engine(query_text):
+    local_query_engine = get_local_query_engine()
+    local_query_response = local_query_engine.query(query_text)
+    if len(local_query_response.source_nodes) > 0:
+        matched_node = local_query_response.source_nodes[0]
+        matched_question = matched_node.text
+        logger.debug(f"Found matched question from index: {matched_question}")
+        return matched_question
+    else:
+        return None
+
+
+def get_llm_query_engine():
+    index = index_storage.index()
+    qa_template = Prompt(QUERY_PROMPT_TEMPLATE)
+    return index.as_query_engine(text_qa_template=qa_template)
 
 
 def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
     data_util.assert_not_none(query_text, "query cannot be none")
     logger.info(f"Query test: {query_text}")
     # first search locally
-    index = index_storage.index()
-    local_query_engine = index.as_query_engine(
-        response_synthesizer=get_response_synthesizer(
-            response_mode=ResponseMode.NO_TEXT
-        ),
-        node_postprocessors=[SimilarityPostprocessor(similarity_cutoff=SIMILARITY_CUTOFF)],
-    )
-    local_query_response = local_query_engine.query(query_text)
-    if len(local_query_response.source_nodes) > 0:
-        matched_node = local_query_response.source_nodes[0]
-        matched_question = matched_node.text
-        logger.debug(f"Found matched question from index: {matched_question}")
+    matched_question = get_matched_question_from_local_query_engine(query_text)
+    if matched_question:
         matched_doc_id = data_util.get_doc_id(matched_question)
         mongo = index_storage.mongo()
         doc_meta = mongo.find_one({"doc_id": matched_doc_id})
         doc_meta = LlamaIndexDocumentMeta(**doc_meta) if doc_meta else None
-        current_timestamp = data_util.get_current_milliseconds()
         if doc_meta:
             logger.debug(f"Found doc meta from mongodb: {doc_meta}")
-            doc_meta.query_timestamps.append(current_timestamp)
+            doc_meta.query_timestamps.append(data_util.get_current_milliseconds())
             mongo.upsert_one({"doc_id": matched_doc_id}, doc_meta)
             if only_for_meta:
                 return doc_meta
@@ -78,8 +93,7 @@ def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocu
             if only_for_meta:
                 return None
     # if not found, turn to LLM
-    qa_template = Prompt(PROMPT_TEMPLATE_STR)
-    llm_query_engine = index.as_query_engine(text_qa_template=qa_template)
+    llm_query_engine = get_llm_query_engine()
     response = llm_query_engine.query(query_text)
     answer_text = str(response)
     # save the question-answer pair to index
@@ -116,32 +130,11 @@ def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
 
 
-def get_chat_history(conversation_id: str) -> List[Message]:
-    messages = chat_message_dao.find(
-        query={"conversation_id": conversation_id, },
-        limit=CHAT_HISTORY_LIMIT,
-        sort=[("timestamp", pymongo.DESCENDING)],
-    )
-    if messages is None:
-        return []
-    else:
-        messages = list(messages)
-        messages = [Message(**m) for m in messages]
-        messages.sort(key=lambda m: m.timestamp)
-        logger.info(f"Found message history size: {len(messages)}")
-        return messages
-
-
-def save_chat_history(conversation_id: str, chat_message: ChatMessage):
-    message = Message.from_chat_message(conversation_id, chat_message)
-    chat_message_dao.insert_one(message)
-
-
 def chat(content: str, conversation_id: str) -> Message:
     data_util.assert_not_none(content, "message content cannot be none")
     user_message = ChatMessage(role=MessageRole.USER, content=content)
     # save immediately, since the following steps may take a while and throw exceptions
-    save_chat_history(conversation_id, user_message)
+    chat_message_dao.save_chat_history(conversation_id, user_message)
     chat_text_qa_msgs = [
         ChatMessage(
             role=MessageRole.SYSTEM,
@@ -174,7 +167,7 @@ def chat(content: str, conversation_id: str) -> Message:
         chat_response = engine.chat(content)
         history = []
     else:
-        history = get_chat_history(conversation_id)
+        history = chat_message_dao.get_chat_history(conversation_id)
         chat_messages = [ChatMessage(role=c.role, content=c.content) for c in history]
         logger.info(f"Creating Chat history, size: {len(chat_messages)}")
         chat_response = engine.chat(content, chat_history=chat_messages)
@@ -205,7 +198,7 @@ def chat(content: str, conversation_id: str) -> Message:
     else:
         content = chat_response.response
     bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
-    save_chat_history(conversation_id, bot_message)
+    chat_message_dao.save_chat_history(conversation_id, bot_message)
     return Message.from_chat_message(conversation_id, bot_message)
 
 
@@ -214,8 +207,8 @@ async def stream_chat(content: str, conversation_id: str):
     # We only support using OpenAI's API
     client = OpenAI()
     user_message = ChatMessage(role=MessageRole.USER, content=content)
-    save_chat_history(conversation_id, user_message)
-    history = get_chat_history(conversation_id)
+    chat_message_dao.save_chat_history(conversation_id, user_message)
+    history = chat_message_dao.get_chat_history(conversation_id)
     messages = [ChatCompletionMessageParam(content=c.content, role=c.role) for c in history]
     completion = client.chat.completions.create(
         model=index_storage.current_model,
@@ -230,7 +223,7 @@ async def stream_chat(content: str, conversation_id: str):
         if finish_reason == "stop" or finish_reason == "length":
             # reached the end
             bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
-            save_chat_history(conversation_id, bot_message)
+            chat_message_dao.save_chat_history(conversation_id, bot_message)
             break
         if content is None:
             break
