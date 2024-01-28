@@ -6,7 +6,7 @@ from app.utils import data_consts
 from app.data.models.mongodb import Message
 from app.utils.log_util import logger
 
-CHAT_HISTORY_LIMIT = 10
+CHAT_HISTORY_LIMIT = 20
 
 
 class ChatMessageDao(MongoDao):
