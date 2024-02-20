@@ -23,7 +23,7 @@ class QaTest(BaseTest):
         ]
         response = self.client.post(url=f"{self.ROOT}/{self.ROUTER_QA}/query", json=data)
         response = QuestionAnsweringResponse(**response.json())
-        self.assertEqual(response.data.answer, get_default_answer())
+        self.assertEqual(get_default_answer(), response.data.answer)
         self.check_document(doc_id=data["question"], from_knowledge_base=False)
         self.doc_id = data["question"]
 

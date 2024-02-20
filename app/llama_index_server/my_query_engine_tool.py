@@ -1,6 +1,6 @@
 from typing import Any
-from llama_index.tools import QueryEngineTool
-from llama_index.tools.types import ToolOutput
+from llama_index.core.tools import QueryEngineTool
+from llama_index.core.tools.types import ToolOutput
 
 DEFAULT_NAME = "my_query_engine_tool"
 DEFAULT_DESCRIPTION = """The only difference between MyQueryEngineTool and QueryEngineTool is: 

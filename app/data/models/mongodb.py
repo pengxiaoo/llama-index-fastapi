@@ -1,7 +1,7 @@
 from pydantic import Field, BaseModel
 from typing import List, Optional
-from llama_index.llms.base import ChatMessage
-from llama_index.core.llms.types import MessageRole
+from llama_index.core.llms.base import ChatMessage
+from llama_index.core.llms import MessageRole
 from app.utils import data_util
 from app.data.models.qa import Source
 

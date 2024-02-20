@@ -1,6 +1,6 @@
 import unittest
 from fastapi.testclient import TestClient
-from llama_index.core.llms.types import MessageRole
+from llama_index.core.llms import MessageRole
 from app.main import app
 from app.data.models.mongodb import Message
 from app.data.models.qa import get_default_answer

@@ -1,7 +1,7 @@
 from enum import Enum
 from pydantic import Field, BaseModel
 from typing import Optional
-from llama_index import Document
+from llama_index.core import Document
 from app.utils import data_util
 
 IRRELEVANT_QUESTION = {

@@ -1,11 +1,11 @@
 from typing import Union
-from llama_index import Prompt
-from llama_index.response_synthesizers import get_response_synthesizer, ResponseMode
-from llama_index.indices.postprocessor import SimilarityPostprocessor
-from llama_index.llms.base import ChatMessage
-from llama_index.agent import OpenAIAgent
-from llama_index.llms import OpenAI
-from llama_index.core.llms.types import MessageRole
+from llama_index.core import Prompt
+from llama_index.core.response_synthesizers import get_response_synthesizer, ResponseMode
+from llama_index.core.postprocessor import SimilarityPostprocessor
+from llama_index.core.llms.base import ChatMessage
+from llama_index.agent.openai import OpenAIAgent
+from llama_index.llms.openai import OpenAI
+from llama_index.core.llms import MessageRole
 from app.data.messages.qa import DocumentRequest
 from app.data.models.qa import Source, Answer, get_default_answer_id, get_default_answer
 from app.data.models.mongodb import (
@@ -151,7 +151,6 @@ def cleanup_for_test():
     return index_storage.mongo().cleanup_for_test()
 
 
-# todo: use cache?
 def get_chat_engine(conversation_id: str, streaming: bool = False):
     local_query_engine = get_local_query_engine()
     query_engine_tools = [
@@ -169,7 +168,6 @@ def get_chat_engine(conversation_id: str, streaming: bool = False):
     )
     chat_history = chat_message_dao.get_chat_history(conversation_id)
     chat_history = [ChatMessage(role=c.role, content=c.content) for c in chat_history]
-    # todo: when the tool find a matched question, should return directly, without further querying from openai
     return OpenAIAgent.from_tools(
         tools=query_engine_tools,
         llm=chat_llm,

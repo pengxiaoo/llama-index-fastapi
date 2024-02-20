@@ -1,17 +1,15 @@
-from collections import deque
 import os
 from contextlib import contextmanager
 from multiprocessing import Lock
 from typing import Tuple
-from llama_index.llms import OpenAI
-from llama_index.indices.base import BaseIndex
-from llama_index import (
+from llama_index.llms.openai import OpenAI
+from llama_index.core.indices.base import BaseIndex
+from llama_index.core import (
     ServiceContext,
     load_index_from_storage,
     StorageContext,
     VectorStoreIndex,
 )
-from llama_index.chat_engine.types import ChatMode, BaseChatEngine
 from app.data.models.qa import Source, Answer
 from app.data.models.mongodb import LlamaIndexDocumentMeta
 from app.utils.log_util import logger
@@ -103,44 +101,3 @@ class IndexStorage:
 
 
 index_storage = IndexStorage()
-
-
-# todo: evaluate whether we need this class
-class ChatEngine:
-    """Class to keep track of all the chat engine"""
-
-    def __init__(self, limit=1000):
-        self._data = {}
-        self._limit = limit
-        self._deque = deque(maxlen=limit)
-
-    def get(self, conversation_id, engine_kwargs=None) -> (BaseChatEngine, bool):
-        """Get a chat engine according to conversation_id
-
-        Args:
-            conversation_id: the unique id of the conversation
-            engine_kwargs
-
-        Returns:
-            engine: the engine itself
-            bool: whether it is newly created
-        """
-        engine = self._data.get(conversation_id)
-        if engine:
-            return engine, False
-        if len(self._data) > self._limit:
-            front = self._deque.popleft()
-            logger.info(f"Delete engine for {front}")
-            del self._data[front]
-        self._deque.append(conversation_id)
-        logger.info(f"Create a new chat engine for {conversation_id}")
-        # mode: https://cobusgreyling.medium.com/llamaindex-chat-engine-858311dfb8cb
-        engine_kwargs = engine_kwargs or {}
-        engine_kwargs.setdefault("verbose", True)
-        engine_kwargs.setdefault("chat_mode", ChatMode.REACT)
-        engine = index_storage.index().as_chat_engine(**engine_kwargs)
-        self._data[conversation_id] = engine
-        return engine, True
-
-
-chat_engine = ChatEngine()
