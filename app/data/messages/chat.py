@@ -1,4 +1,4 @@
-from llama_index.core.llms.base import ChatMessage
+from llama_index.core.llms import ChatMessage
 from pydantic import Field, BaseModel
 from llama_index.core.llms import MessageRole
 from app.data.models.mongodb import Message

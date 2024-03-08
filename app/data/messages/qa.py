@@ -16,7 +16,7 @@ class QuestionAnsweringRequest(BaseModel):
             "example_relevant_but_not_in_knowledge_base": {
                 "question": "How much money it will cost if I buy a full set of golf clubs?"
             },
-            "example_not_relevant": {"question": "What is the capital of United States of America?"},
+            "example_not_relevant": {"question": "how to become a football player?"},
         }
 
 

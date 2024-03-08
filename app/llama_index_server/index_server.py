@@ -2,10 +2,9 @@ from typing import Union
 from llama_index.core import Prompt
 from llama_index.core.response_synthesizers import get_response_synthesizer, ResponseMode
 from llama_index.core.postprocessor import SimilarityPostprocessor
-from llama_index.core.llms.base import ChatMessage
+from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.agent.openai import OpenAIAgent
 from llama_index.llms.openai import OpenAI
-from llama_index.core.llms import MessageRole
 from app.data.messages.qa import DocumentRequest
 from app.data.models.qa import Source, Answer, get_default_answer_id, get_default_answer
 from app.data.models.mongodb import (

@@ -55,10 +55,17 @@ source env/bin/activate
 pip install -r requirements.txt
 ```
 
-- Run the application locally
+- Unit test
 
 ```shell
-PYTHONPATH=. python app/main.py
+pytest -ss
+```
+
+- Start the server
+
+```shell
+uvicorn app.main:app --host 127.0.0.1 --port 8081
+# PYTHONPATH=. python app/main.py 8082
 ```
 
 - [Api doc](http://127.0.0.1:8081/docs)

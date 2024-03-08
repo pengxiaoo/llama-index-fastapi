@@ -108,11 +108,11 @@ async def key_error_handler(request, exc):
     )
 
 
-def main():
+def main(host="127.0.0.1", port=8081):
     # show if there is any python process running bounded to the port
     # ps -fA | grep python
     logger.info("Start api server")
-    uvicorn.run("app.main:app", host="127.0.0.1", port=8081)
+    uvicorn.run("app.main:app", host=host, port=port)
 
 
 if __name__ == "__main__":

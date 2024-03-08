@@ -1,6 +1,6 @@
 from typing import List
 import pymongo
-from llama_index.core.llms.base import ChatMessage
+from llama_index.core.llms import ChatMessage
 from app.utils.mongo_dao import MongoDao
 from app.utils import data_consts
 from app.data.models.mongodb import Message
