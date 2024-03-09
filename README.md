@@ -49,8 +49,9 @@ there are 2 modes: question answering mode and chatbot mode.
 - Setup Environment
 
 ```shell
-export OPENAI_API_KEY=your_openai_api_key
-virtualenv -p python3.9 env
+export OPENAI_API_KEY=your_openai_api_key 
+pyenv install 3.11.8 
+virtualenv -p python3.11 env
 source env/bin/activate
 pip install -r requirements.txt
 ```

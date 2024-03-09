@@ -1,4 +1,4 @@
-FROM python:3.9.18-slim
+FROM python:3.11.8-slim
 WORKDIR /ai-bot
 COPY ./requirements.txt /ai-bot/requirements.txt
 RUN pip install --no-cache-dir -r /ai-bot/requirements.txt
