@@ -4,7 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.utils.openapi import patch_openapi
 from app.data.messages.status_code import StatusCode
-from app.data.messages.response import CustomHTTPException
+import asyncio
+from openai import OpenAIError
 from app.routers.qa import qa_router
 from app.routers.admin import admin_router
 from app.routers.chatbot import chatbot_router
@@ -58,19 +59,6 @@ def handle_error_msg(request, error_msg, error_code=None):
     return result
 
 
-@app.exception_handler(CustomHTTPException)
-async def custom_exception_handler(request, exc):
-    msg = exc.detail
-    error_msg = handle_error_msg(request, msg)
-    return JSONResponse(
-        status_code=400,
-        content={
-            "status_code": exc.custom_status_code,
-            "msg": error_msg,
-        },
-    )
-
-
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     msg = exc.errors()[0]["msg"]
@@ -84,28 +72,24 @@ async def validation_exception_handler(request, exc):
     )
 
 
-@app.exception_handler(ValueError)
-async def value_error_handler(request, exc):
-    error_msg = handle_error_msg(request, str(exc))
-    return JSONResponse(
-        status_code=400,
-        content={
-            "status_code": StatusCode.ERROR_INPUT_FORMAT,
-            "msg": error_msg,
-        },
-    )
+@app.exception_handler(OpenAIError)
+async def openai_exception_handler(request: Request, exc: OpenAIError):
+    request_url = str(request.url)
+    logger.error(f"OpenAIError: {exc} in request_url: {request_url}")
+    return JSONResponse(status_code=200, content={
+        "status_code": StatusCode.ERROR_OPENAI,
+        "msg": {exc},
+    })
 
 
-@app.exception_handler(KeyError)
-async def key_error_handler(request, exc):
-    error_msg = handle_error_msg(request, "KeyError - " + str(exc))
-    return JSONResponse(
-        status_code=400,
-        content={
-            "status_code": StatusCode.ERROR_INPUT_FORMAT,
-            "msg": error_msg,
-        },
-    )
+@app.exception_handler(asyncio.TimeoutError)
+async def timeout_exception_handler(request: Request, exc: asyncio.TimeoutError):
+    request_url = str(request.url)
+    logger.error(f"TimeoutError: {exc} in request_url: {request_url}")
+    return JSONResponse(status_code=200, content={
+        "status_code": StatusCode.ERROR_TIMEOUT,
+        "msg": f"TimeoutError during request url: {request_url}",
+    })
 
 
 def main(host="127.0.0.1", port=8081):

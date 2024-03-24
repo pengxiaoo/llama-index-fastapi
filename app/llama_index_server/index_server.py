@@ -5,6 +5,8 @@ from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.agent.openai import OpenAIAgent
 from llama_index.llms.openai import OpenAI
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from app.data.messages.qa import DocumentRequest
 from app.data.models.qa import Source, Answer, get_default_answer_id, get_default_answer
 from app.data.models.mongodb import (
@@ -18,12 +20,9 @@ from app.llama_index_server.chat_message_dao import ChatMessageDao
 from app.llama_index_server.index_storage import index_storage
 from app.llama_index_server.my_query_engine_tool import MyQueryEngineTool, MATCHED_MARK
 
+executor = ThreadPoolExecutor(max_workers=100)
 SIMILARITY_CUTOFF = 0.85
 PROMPT_TEMPLATE_FOR_QUERY_ENGINE = (
-    "We have provided context information below. \n"
-    "---------------------\n"
-    "{context_str}"
-    "\n---------------------\n"
     "Given this information, assume you are an experienced golf coach, if the question has anything to do with golf, "
     "please give short, simple, accurate, precise answer to the question, "
     "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
@@ -87,11 +86,12 @@ def get_llm_query_engine():
     return index.as_query_engine(text_qa_template=qa_template)
 
 
-def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
+async def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocumentMeta, None]:
     data_util.assert_not_none(query_text, "query cannot be none")
     logger.info(f"Query test: {query_text}")
+    loop = asyncio.get_running_loop()
     # first search locally
-    matched_question = get_matched_question_from_local_query_engine(query_text)
+    matched_question = await loop.run_in_executor(executor, get_matched_question_from_local_query_engine, query_text)
     if matched_question:
         matched_doc_id, doc_meta = get_doc_meta(matched_question)
         if doc_meta:
@@ -115,7 +115,7 @@ def query_index(query_text, only_for_meta=False) -> Union[Answer, LlamaIndexDocu
                 return None
     # if not found, turn to LLM
     llm_query_engine = get_llm_query_engine()
-    response = llm_query_engine.query(query_text)
+    response = await loop.run_in_executor(executor, llm_query_engine.query, query_text)
     # save the question-answer pair to index
     answer = Answer(
         category=None,
@@ -143,7 +143,7 @@ def get_document(req: DocumentRequest):
             doc_meta.matched_question = doc_meta.question
             doc_meta.question = doc_meta.doc_id = req.doc_id
             return LlamaIndexDocumentMetaReadable(**doc_meta.model_dump())
-        return None
+    return None
 
 
 def cleanup_for_test():

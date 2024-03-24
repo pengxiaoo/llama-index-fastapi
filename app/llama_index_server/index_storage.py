@@ -5,7 +5,7 @@ from typing import Tuple
 from llama_index.llms.openai import OpenAI
 from llama_index.core.indices.base import BaseIndex
 from llama_index.core import (
-    ServiceContext,
+    Settings,
     load_index_from_storage,
     StorageContext,
     VectorStoreIndex,
@@ -80,13 +80,12 @@ class IndexStorage:
 
     def initialize_index(self) -> Tuple[BaseIndex, DocumentMetaDao]:
         llm = OpenAI(temperature=0.1, model=self._current_model)
-        service_context = ServiceContext.from_defaults(llm=llm)
+        Settings.llm = llm
         mongo = DocumentMetaDao()
         if os.path.exists(INDEX_PATH) and os.path.exists(INDEX_PATH + "/docstore.json"):
             logger.info(f"Loading index from dir: {INDEX_PATH}")
             index = load_index_from_storage(
                 StorageContext.from_defaults(persist_dir=INDEX_PATH),
-                service_context=service_context,
             )
         else:
             data_util.assert_true(os.path.exists(CSV_PATH), f"csv file not found: {CSV_PATH}")

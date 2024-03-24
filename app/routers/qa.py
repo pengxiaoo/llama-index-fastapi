@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+import asyncio
 from app.data.messages.qa import (
     QuestionAnsweringRequest,
     QuestionAnsweringResponse,
@@ -8,6 +9,7 @@ from app.data.messages.qa import (
 from app.llama_index_server import index_server
 from app.utils.log_util import logger
 
+qa_timeout = 5
 qa_router = APIRouter(
     prefix="/qa",
     tags=["question answering"],
@@ -24,7 +26,7 @@ qa_router = APIRouter(
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
     query_text = req.question
-    answer = index_server.query_index(query_text)
+    answer = await asyncio.wait_for(index_server.query_index(query_text), timeout=qa_timeout)
     return QuestionAnsweringResponse(data=answer)
 
 
