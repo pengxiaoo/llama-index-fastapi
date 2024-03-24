@@ -23,7 +23,7 @@ from app.llama_index_server.my_query_engine_tool import MyQueryEngineTool, MATCH
 executor = ThreadPoolExecutor(max_workers=100)
 SIMILARITY_CUTOFF = 0.85
 PROMPT_TEMPLATE_FOR_QUERY_ENGINE = (
-    "Given this information, assume you are an experienced golf coach, if the question has anything to do with golf, "
+    "Assume you are an experienced golf coach, if the question has anything to do with golf, "
     "please give short, simple, accurate, precise answer to the question, "
     "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
     f"'{get_default_answer_id()}'.\n"
