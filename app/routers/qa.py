@@ -8,8 +8,8 @@ from app.data.messages.qa import (
 )
 from app.llama_index_server import index_server
 from app.utils.log_util import logger
+from app.utils.data_consts import API_TIMEOUT
 
-qa_timeout = 5
 qa_router = APIRouter(
     prefix="/qa",
     tags=["question answering"],
@@ -26,7 +26,7 @@ qa_router = APIRouter(
 async def answer_question(req: QuestionAnsweringRequest):
     logger.info("answer question from user")
     query_text = req.question
-    answer = await asyncio.wait_for(index_server.query_index(query_text), timeout=qa_timeout)
+    answer = await asyncio.wait_for(index_server.query_index(query_text), timeout=API_TIMEOUT)
     return QuestionAnsweringResponse(data=answer)
 
 
@@ -37,5 +37,5 @@ async def answer_question(req: QuestionAnsweringRequest):
 )
 async def get_document(req: DocumentRequest):
     logger.info(f"get document for doc_id {req.doc_id}, fuzzy search: {req.fuzzy}")
-    document = index_server.get_document(req)
+    document = await asyncio.wait_for(index_server.get_document(req), timeout=API_TIMEOUT)
     return DocumentResponse(data=document)

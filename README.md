@@ -17,7 +17,8 @@ there are 2 modes: question answering mode and chatbot mode.
 
 ### chatbot mode
 
-- currently in development
+- currently in development. the bot will be allowed to answer any questions, not necessarily limited to the topic. the
+  bot will be able to extract information from chat history
 
 #### When asking a question in the knowledge base
 
@@ -39,7 +40,6 @@ there are 2 modes: question answering mode and chatbot mode.
 
 ## Next steps
 
-- currently the bot only supports question answering. plan to support chat as well.
 - use openAI's Assistant API as the search engine(I've already tried, but it is not as good as llama index at the
   moment)
 - more test cases

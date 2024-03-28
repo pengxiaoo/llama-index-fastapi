@@ -91,7 +91,7 @@ class IndexStorage:
             data_util.assert_true(os.path.exists(CSV_PATH), f"csv file not found: {CSV_PATH}")
             standard_answers = csv_util.load_standard_answers_from_csv(CSV_PATH)
             documents = [answer.to_llama_index_document() for answer in standard_answers]
-            index = VectorStoreIndex.from_documents(documents, service_context=service_context)
+            index = VectorStoreIndex.from_documents(documents)
             index.storage_context.persist(persist_dir=INDEX_PATH)
             doc_metas = [LlamaIndexDocumentMeta.from_answer(answer).model_dump() for answer in standard_answers]
             mongo.bulk_upsert(doc_metas, primary_keys=["doc_id"])

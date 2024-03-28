@@ -1,8 +1,9 @@
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
+import asyncio
 from app.data.messages.chat import ChatRequest, ChatResponse
 from app.llama_index_server import index_server
 from app.utils.log_util import logger
+from app.utils.data_consts import API_TIMEOUT
 
 chatbot_router = APIRouter(
     prefix="/chat",
@@ -17,18 +18,5 @@ chatbot_router = APIRouter(
 async def chat(request: ChatRequest):
     logger.info("Non streaming chat")
     conversation_id = request.conversation_id
-    message = index_server.chat(request.content, conversation_id)
+    message = await asyncio.wait_for(index_server.chat(request.content, conversation_id), timeout=API_TIMEOUT)
     return ChatResponse(data=message)
-
-
-@chatbot_router.post(
-    "/streaming",
-    description="Chat with the ai bot in a streaming way."
-)
-async def streaming_chat(request: ChatRequest):
-    logger.info("streaming chat")
-    conversation_id = request.conversation_id
-    return StreamingResponse(
-        index_server.stream_chat(request.content, conversation_id),
-        media_type='text/event-stream'
-    )

@@ -41,6 +41,14 @@ class MongoDao:
             pruned_ids = self.prune()
         return pruned_ids
 
+    def update_one(self, query, doc: CollectionModel):
+        logger.info(f"Update one: query = {query}")
+        self._collection.update_one(
+            query,
+            {"$set": doc.model_dump()},
+            upsert=False,
+        )
+
     def bulk_upsert(self, docs, primary_keys):
         operations = [ReplaceOne(
             filter={primary_key: doc[primary_key] for primary_key in primary_keys},

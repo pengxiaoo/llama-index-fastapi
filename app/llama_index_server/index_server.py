@@ -23,22 +23,21 @@ from app.llama_index_server.my_query_engine_tool import MyQueryEngineTool, MATCH
 executor = ThreadPoolExecutor(max_workers=100)
 SIMILARITY_CUTOFF = 0.85
 PROMPT_TEMPLATE_FOR_QUERY_ENGINE = (
-    "Assume you are an experienced golf coach, if the question has anything to do with golf, "
+    "Assume you are an experienced golf coach glad to answer questions from golfer beginners, "
+    "if the question has anything to do with golf, or golf knowledge, or golfer population, "
     "please give short, simple, accurate, precise answer to the question, "
     "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
     f"'{get_default_answer_id()}'.\n"
     "The question is: {query_str}\n"
 )
 SYSTEM_PROMPT_TEMPLATE_FOR_CHAT_ENGINE = (
-    "Your are an expert Q&A system that can find relevant information using the tools at your disposal.\n"
+    "Your are an expert Q&A system that can find relevant information using the tools at your disposal, and you have "
+    "great knowledge about golf.\n"
     "The tools can access a set of typical questions a golf beginner might ask.\n"
     "If the user's query matches one of those typical questions, stop and return the matched question immediately.\n"
     "If the user's query doesn't match any of those typical questions, "
-    "then you should act as an experienced golf coach, and firstly evaluate whether the question is relevant to golf.\n"
-    f"if it is not golf relevant at all, please answer '{get_default_answer_id()},"
-    "otherwise, please give short, simple, accurate, precise answer to the question, limited to 80 words maximum.\n"
+    "please give short, simple, accurate, precise answer to the question, limited to 80 words maximum.\n"
     "You may need to combine the chat history to fully understand the query of the user.\n"
-    "Remember you are only allowed to answer questions related to golf.\n"
 )
 chat_message_dao = ChatMessageDao()
 
@@ -133,12 +132,12 @@ def delete_doc(doc_id):
     return index_storage.delete_doc(doc_id)
 
 
-def get_document(req: DocumentRequest):
+async def get_document(req: DocumentRequest):
     doc_meta = index_storage.mongo().find_one({"doc_id": req.doc_id})
     if doc_meta:
         return LlamaIndexDocumentMetaReadable(**doc_meta)
     elif req.fuzzy:
-        doc_meta = query_index(req.doc_id, only_for_meta=True)
+        doc_meta = await query_index(req.doc_id, only_for_meta=True)
         if doc_meta:
             doc_meta.matched_question = doc_meta.question
             doc_meta.question = doc_meta.doc_id = req.doc_id
@@ -185,22 +184,22 @@ def get_response_text_from_chat(agent_chat_response):
     return agent_chat_response.response
 
 
-def chat(query_text: str, conversation_id: str) -> Message:
+async def chat(query_text: str, conversation_id: str) -> Message:
     # we will not index chat messages in vector store, but will save them in mongodb
     data_util.assert_not_none(query_text, "query content cannot be none")
     user_message = ChatMessage(role=MessageRole.USER, content=query_text)
     # save immediately, since the following steps may take a while and throw exceptions
     chat_message_dao.save_chat_history(conversation_id, user_message)
     chat_engine = get_chat_engine(conversation_id)
-    agent_chat_response = chat_engine.chat(query_text)
+    loop = asyncio.get_running_loop()
+    agent_chat_response = await loop.run_in_executor(executor, chat_engine.chat, query_text)
     response_text = get_response_text_from_chat(agent_chat_response)
-    # todo: change the if condition to: response_text == get_default_answer_id()
     response_text = get_default_answer() if get_default_answer_id() in response_text else response_text
     matched_doc_id, doc_meta = get_doc_meta(response_text)
     if doc_meta:
         logger.debug(f"An matched doc meta found from mongodb: {doc_meta}")
         doc_meta.query_timestamps.append(data_util.get_current_milliseconds())
-        index_storage.mongo().upsert_one({"doc_id": matched_doc_id}, doc_meta)
+        index_storage.mongo().update_one({"doc_id": matched_doc_id}, doc_meta)
         bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=doc_meta.answer)
     else:
         # means the chat engine cannot find a matched doc meta from mongodb
@@ -208,45 +207,3 @@ def chat(query_text: str, conversation_id: str) -> Message:
         bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=response_text)
     chat_message_dao.save_chat_history(conversation_id, bot_message)
     return Message.from_chat_message(conversation_id, bot_message)
-
-
-async def stream_chat(content: str, conversation_id: str):
-    # todo: need to use chat engine based on index. otherwise, the local database is not utilized
-    # We only support using OpenAI's API
-    client = OpenAI()
-    user_message = ChatMessage(role=MessageRole.USER, content=content)
-    chat_message_dao.save_chat_history(conversation_id, user_message)
-    history = chat_message_dao.get_chat_history(conversation_id)
-    messages = [dict(content=c.content, role=c.role) for c in history]
-    messages = [
-                   dict(
-                       role=MessageRole.SYSTEM,
-                       content=(
-                           "assume you are an experienced golf coach, if the question has anything to do with golf, "
-                           "please give short, simple, accurate, precise answer to the question, "
-                           "limited to 80 words maximum. If the question has nothing to do with golf at all, please answer "
-                           f"'{get_default_answer()}'."
-                       )
-                   ),
-               ] + messages
-    completion = client.chat.completions.create(
-        model=index_storage.current_model,
-        messages=messages,
-        temperature=0,
-        stream=True  # again, we set stream=True
-    )
-    chunks = []
-    for chunk in completion:
-        finish_reason = chunk.choices[0].finish_reason
-        content = chunk.choices[0].delta.content
-        if finish_reason == "stop" or finish_reason == "length":
-            # reached the end
-            if content is not None:
-                bot_message = ChatMessage(role=MessageRole.ASSISTANT, content=content)
-                chat_message_dao.save_chat_history(conversation_id, bot_message)
-            break
-        if content is None:
-            break
-        chunks.append(content)
-        logger.debug("Chunk message: %s", content)
-        yield content
